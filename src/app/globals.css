@@ -49,6 +49,11 @@
   --color-stat-positive: var(--stat-positive);
   --color-stat-neutral: var(--stat-neutral);
   --color-stat-growth: var(--stat-growth);
+
+  /* Apple HIG System Colors for gradient bars */
+  /* Reference: https://developer.apple.com/design/human-interface-guidelines/color */
+  --color-apple-blue: #007AFF;
+  --color-apple-purple: #AF52DE;
 }
 
 /*
@@ -123,7 +128,7 @@
 .dark {
   --background: oklch(0.04 0 0);
   --foreground: oklch(0.95 0 0);
-  --card: oklch(0.10 0.005 270);
+  --card: oklch(0.2033 0.01 270);
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.10 0.005 270);
   --popover-foreground: oklch(0.95 0 0);

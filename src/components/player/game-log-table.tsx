@@ -2,6 +2,12 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { getMetricTooltip } from "@/lib/metric-descriptions";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { WeeklyStat, PlayerPosition, PositionStats } from "@/lib/types";
 import { isQBStats, isRBStats, isWRStats, isTEStats } from "@/lib/types";
 
@@ -13,10 +19,23 @@ interface ColumnConfig {
     label: string;
     shortLabel: string;
     getValue: (stats: PositionStats) => number;
+    /** Fixed max value for heat-map scaling (based on typical elite single-game performance) */
+    maxValue: number;
 }
 
 /**
  * Get column configurations based on player position
+ * Max values are based on elite single-game performances:
+ * - Passing yards: 400+ is elite (record ~500)
+ * - Passing TDs: 4+ is elite (record 7)
+ * - Rushing yards: 150+ is elite (record ~300)
+ * - Receiving yards: 150+ is elite (record ~300)
+ * - TDs: 3+ is elite for any position
+ * - Completions: 35+ is elite
+ * - Carries: 25+ is elite
+ * - Receptions: 12+ is elite
+ * - Targets: 15+ is elite
+ * - Interceptions: 3+ is a bad game
  */
 const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
     switch (position) {
@@ -28,6 +47,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "YD",
                     getValue: (stats) =>
                         isQBStats(stats) ? stats.passingYards : 0,
+                    maxValue: 400, // 400+ yards is an elite game
                 },
                 {
                     key: "completions",
@@ -35,6 +55,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "CMP",
                     getValue: (stats) =>
                         isQBStats(stats) ? stats.completions : 0,
+                    maxValue: 35, // 35+ completions is elite
                 },
                 {
                     key: "passingTDs",
@@ -42,6 +63,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "TD",
                     getValue: (stats) =>
                         isQBStats(stats) ? stats.passingTDs : 0,
+                    maxValue: 4, // 4+ TDs is an elite game
                 },
                 {
                     key: "interceptions",
@@ -49,6 +71,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "INT",
                     getValue: (stats) =>
                         isQBStats(stats) ? stats.interceptions : 0,
+                    maxValue: 3, // 3+ INTs is a bad game
                 },
             ];
         case "RB":
@@ -59,12 +82,14 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "YD",
                     getValue: (stats) =>
                         isRBStats(stats) ? stats.rushingYards : 0,
+                    maxValue: 150, // 150+ rushing yards is elite
                 },
                 {
                     key: "carries",
                     label: "Carries",
                     shortLabel: "CAR",
                     getValue: (stats) => (isRBStats(stats) ? stats.carries : 0),
+                    maxValue: 25, // 25+ carries is a heavy workload
                 },
                 {
                     key: "rushingTDs",
@@ -72,6 +97,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "TD",
                     getValue: (stats) =>
                         isRBStats(stats) ? stats.rushingTDs : 0,
+                    maxValue: 3, // 3+ rushing TDs is elite
                 },
                 {
                     key: "receptions",
@@ -79,6 +105,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "REC",
                     getValue: (stats) =>
                         isRBStats(stats) ? stats.receptions : 0,
+                    maxValue: 8, // 8+ receptions for RB is elite
                 },
                 {
                     key: "receivingYards",
@@ -86,6 +113,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "REC YD",
                     getValue: (stats) =>
                         isRBStats(stats) ? stats.receivingYards : 0,
+                    maxValue: 75, // 75+ receiving yards for RB is elite
                 },
             ];
         case "WR":
@@ -96,6 +124,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "YD",
                     getValue: (stats) =>
                         isWRStats(stats) ? stats.receivingYards : 0,
+                    maxValue: 150, // 150+ receiving yards is elite
                 },
                 {
                     key: "receptions",
@@ -103,12 +132,14 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "REC",
                     getValue: (stats) =>
                         isWRStats(stats) ? stats.receptions : 0,
+                    maxValue: 12, // 12+ receptions is elite
                 },
                 {
                     key: "targets",
                     label: "Targets",
                     shortLabel: "TGT",
                     getValue: (stats) => (isWRStats(stats) ? stats.targets : 0),
+                    maxValue: 15, // 15+ targets is elite volume
                 },
                 {
                     key: "receivingTDs",
@@ -116,6 +147,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "TD",
                     getValue: (stats) =>
                         isWRStats(stats) ? stats.receivingTDs : 0,
+                    maxValue: 2, // 2+ receiving TDs is elite
                 },
             ];
         case "TE":
@@ -126,6 +158,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "YD",
                     getValue: (stats) =>
                         isTEStats(stats) ? stats.receivingYards : 0,
+                    maxValue: 100, // 100+ receiving yards for TE is elite
                 },
                 {
                     key: "receptions",
@@ -133,12 +166,14 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "REC",
                     getValue: (stats) =>
                         isTEStats(stats) ? stats.receptions : 0,
+                    maxValue: 10, // 10+ receptions for TE is elite
                 },
                 {
                     key: "targets",
                     label: "Targets",
                     shortLabel: "TGT",
                     getValue: (stats) => (isTEStats(stats) ? stats.targets : 0),
+                    maxValue: 12, // 12+ targets for TE is elite
                 },
                 {
                     key: "receivingTDs",
@@ -146,6 +181,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                     shortLabel: "TD",
                     getValue: (stats) =>
                         isTEStats(stats) ? stats.receivingTDs : 0,
+                    maxValue: 2, // 2+ receiving TDs is elite
                 },
             ];
     }
@@ -180,13 +216,17 @@ const getCellStyle = (
     if (isNegativeStat) {
         // Red-orange for negative stats (INTs)
         return {
-            backgroundColor: `oklch(${0.45 + intensity * 0.2} ${0.12 + intensity * 0.08} 25 / ${intensity})`,
+            backgroundColor: `oklch(${0.45 + intensity * 0.2} ${
+                0.12 + intensity * 0.08
+            } 25 / ${intensity})`,
         };
     }
 
     // Green for positive stats
     return {
-        backgroundColor: `oklch(${0.45 + intensity * 0.27} ${0.1 + intensity * 0.09} 145 / ${intensity})`,
+        backgroundColor: `oklch(${0.45 + intensity * 0.27} ${
+            0.1 + intensity * 0.09
+        } 145 / ${intensity})`,
     };
 };
 
@@ -203,6 +243,62 @@ interface GameLogTableProps {
 }
 
 /**
+ * Column header with tooltip component
+ * Renders a table header with metric explanation tooltip
+ */
+interface ColumnHeaderProps {
+    /** The column configuration */
+    column: ColumnConfig;
+}
+
+function ColumnHeader({ column }: ColumnHeaderProps) {
+    const tooltipData = getMetricTooltip(column.key);
+
+    // If we have tooltip data, wrap in a tooltip
+    if (tooltipData) {
+        return (
+            <th
+                key={column.key}
+                className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 px-1 min-w-[48px]"
+            >
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-2">
+                            {column.shortLabel}
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent
+                        side="top"
+                        className="max-w-xs p-3 space-y-1.5"
+                    >
+                        <p className="font-semibold text-sm text-zinc-100">
+                            {tooltipData.name}
+                        </p>
+                        <p className="text-xs leading-relaxed text-zinc-300">
+                            {tooltipData.description}
+                        </p>
+                        <p className="text-xs leading-relaxed text-zinc-400 italic">
+                            {tooltipData.significance}
+                        </p>
+                    </TooltipContent>
+                </Tooltip>
+            </th>
+        );
+    }
+
+    // Fallback without tooltip
+    return (
+        <th
+            key={column.key}
+            className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 px-1 min-w-[48px]"
+            title={column.label}
+        >
+            {column.shortLabel}
+        </th>
+    );
+}
+
+/**
  * GameLogTable component
  *
  * Displays weekly stats in a table format similar to the Sleeper app:
@@ -210,6 +306,7 @@ interface GameLogTableProps {
  * - Each cell is color-coded based on value intensity
  * - Zero values have no color (like GitHub commit graph)
  * - Highest values have the brightest color
+ * - Column headers include tooltips with metric explanations
  *
  * @example
  * ```tsx
@@ -232,41 +329,23 @@ export function GameLogTable({
         [weeklyStats]
     );
 
-    // Calculate max values for each column across all weeks
-    const maxValues = React.useMemo(() => {
-        const maxes: Record<string, number> = {};
-        columns.forEach((col) => {
-            maxes[col.key] = Math.max(
-                ...sortedStats.map((stat) => col.getValue(stat.stats)),
-                1 // Minimum of 1 to avoid division by zero
-            );
-        });
-        return maxes;
-    }, [sortedStats, columns]);
-
     // Identify negative stats (like interceptions)
     const negativeStats = new Set(["interceptions"]);
 
     return (
         <div className={cn("overflow-x-auto", className)}>
             <table className="w-full border-collapse">
-                {/* Header row with stat labels */}
+                {/* Header row with stat labels and tooltips */}
                 <thead>
                     <tr>
-                        <th className="sticky left-0 bg-background z-10 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 pr-2 w-16">
+                        <th className="sticky left-0 z-10 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 pr-2 w-16">
                             WK
                         </th>
                         <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 px-1 w-16">
                             OPP
                         </th>
                         {columns.map((col) => (
-                            <th
-                                key={col.key}
-                                className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 px-1 min-w-[48px]"
-                                title={col.label}
-                            >
-                                {col.shortLabel}
-                            </th>
+                            <ColumnHeader key={col.key} column={col} />
                         ))}
                     </tr>
                 </thead>
@@ -282,7 +361,7 @@ export function GameLogTable({
                                 className="border-t border-border/50"
                             >
                                 {/* Week number */}
-                                <td className="sticky left-0 bg-background z-10 py-2 pr-2">
+                                <td className="sticky left-0 z-10 py-2 pr-2">
                                     <span className="text-sm font-medium text-muted-foreground">
                                         {stat.week}
                                     </span>
@@ -306,9 +385,10 @@ export function GameLogTable({
                                 {/* Stat cells */}
                                 {columns.map((col) => {
                                     const value = col.getValue(stat.stats);
+                                    // Use fixed metric-based max value for consistent coloring
                                     const intensity = getIntensity(
                                         value,
-                                        maxValues[col.key]
+                                        col.maxValue
                                     );
                                     const isNegative = negativeStats.has(
                                         col.key
@@ -381,4 +461,3 @@ export function GameLogTableSkeleton({ className }: { className?: string }) {
         </div>
     );
 }
-

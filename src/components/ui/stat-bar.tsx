@@ -2,6 +2,12 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { getMetricTooltip } from "@/lib/metric-descriptions";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { PerformanceLevel } from "@/lib/types";
 
 /**
@@ -26,30 +32,30 @@ interface StatBarProps {
     showValue?: boolean;
     /** Size variant */
     size?: "sm" | "md" | "lg";
+    /** Optional metric key for tooltip lookup (e.g., "passingYards") */
+    metricKey?: string;
 }
 
 /**
- * Get color classes based on performance level
+ * Apple HIG System Colors for gradient bars
+ * Reference: https://developer.apple.com/design/human-interface-guidelines/color
  */
-const getPerformanceColors = (performance: PerformanceLevel) => {
-    switch (performance) {
-        case "above":
-            return {
-                bar: "bg-stat-positive",
-                text: "text-stat-positive",
-            };
-        case "below":
-            return {
-                bar: "bg-muted-foreground/50",
-                text: "text-muted-foreground",
-            };
-        case "average":
-        default:
-            return {
-                bar: "bg-stat-neutral",
-                text: "text-stat-neutral",
-            };
-    }
+const APPLE_BLUE = "#007AFF";
+const APPLE_PURPLE = "#AF52DE";
+
+/**
+ * Get color classes based on performance level
+ * Uses Apple HIG blue-purple gradient for bars, white text for values
+ */
+const getPerformanceColors = (_performance: PerformanceLevel) => {
+    // All bars use the same blue-purple gradient
+    // Text values are white for readability
+    return {
+        barStyle: {
+            background: `linear-gradient(to right, ${APPLE_BLUE}, ${APPLE_PURPLE})`,
+        },
+        text: "text-white",
+    };
 };
 
 /**
@@ -83,7 +89,7 @@ const getSizeClasses = (size: "sm" | "md" | "lg") => {
  * StatBar component for visualizing player statistics
  *
  * Displays a horizontal bar with:
- * - Label and optional value
+ * - Label and optional value (with tooltip explanation)
  * - Color-coded fill based on performance
  * - Optional average marker
  *
@@ -96,6 +102,7 @@ const getSizeClasses = (size: "sm" | "md" | "lg") => {
  *   average={280}
  *   performance="above"
  *   unit="yds"
+ *   metricKey="passingYards"
  * />
  * ```
  */
@@ -109,6 +116,7 @@ export function StatBar({
     className,
     showValue = true,
     size = "md",
+    metricKey,
 }: StatBarProps) {
     // Calculate fill percentage (capped at 100%)
     const fillPercent = Math.min((value / maxValue) * 100, 100);
@@ -121,18 +129,57 @@ export function StatBar({
     const colors = getPerformanceColors(performance);
     const sizes = getSizeClasses(size);
 
+    // Get tooltip content if metric key is provided
+    const tooltipData = metricKey ? getMetricTooltip(metricKey) : null;
+
+    /**
+     * Render the label element, optionally wrapped in a tooltip
+     */
+    const renderLabel = () => {
+        const labelElement = (
+            <span
+                className={cn(
+                    "font-medium text-muted-foreground",
+                    sizes.text,
+                    tooltipData &&
+                        "cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-2"
+                )}
+            >
+                {label}
+            </span>
+        );
+
+        // If we have tooltip data, wrap the label in a tooltip
+        if (tooltipData) {
+            return (
+                <Tooltip>
+                    <TooltipTrigger asChild>{labelElement}</TooltipTrigger>
+                    <TooltipContent
+                        side="top"
+                        className="max-w-xs p-3 space-y-1.5"
+                    >
+                        <p className="font-semibold text-sm text-zinc-100">
+                            {tooltipData.name}
+                        </p>
+                        <p className="text-xs leading-relaxed text-zinc-300">
+                            {tooltipData.description}
+                        </p>
+                        <p className="text-xs leading-relaxed text-zinc-400 italic">
+                            {tooltipData.significance}
+                        </p>
+                    </TooltipContent>
+                </Tooltip>
+            );
+        }
+
+        return labelElement;
+    };
+
     return (
         <div className={cn("space-y-1.5", className)}>
             {/* Header row with label and value */}
             <div className="flex items-baseline justify-between gap-2">
-                <span
-                    className={cn(
-                        "font-medium text-muted-foreground",
-                        sizes.text
-                    )}
-                >
-                    {label}
-                </span>
+                {renderLabel()}
                 {showValue && (
                     <span
                         className={cn(
@@ -158,13 +205,13 @@ export function StatBar({
                     sizes.bar
                 )}
             >
-                {/* Fill bar */}
+                {/* Fill bar with Apple HIG blue-purple gradient */}
                 <div
-                    className={cn(
-                        "absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out",
-                        colors.bar
-                    )}
-                    style={{ width: `${fillPercent}%` }}
+                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+                    style={{
+                        width: `${fillPercent}%`,
+                        ...colors.barStyle,
+                    }}
                 />
 
                 {/* Average marker */}
@@ -189,16 +236,80 @@ interface StatValueProps {
     unit?: string;
     performance?: PerformanceLevel;
     className?: string;
+    /** Optional metric key for tooltip lookup (e.g., "passingYards") */
+    metricKey?: string;
 }
 
+/**
+ * StatValue component for compact stat display
+ *
+ * Shows a value with label, optionally with tooltip explanation
+ *
+ * @example
+ * ```tsx
+ * <StatValue
+ *   label="Passing"
+ *   value={324}
+ *   performance="above"
+ *   metricKey="passingYards"
+ * />
+ * ```
+ */
 export function StatValue({
     label,
     value,
     unit,
     performance = "average",
     className,
+    metricKey,
 }: StatValueProps) {
-    const colors = getPerformanceColors(performance);
+    // Use white text for stat values to match the gradient bar styling
+    const colors = { text: "text-white" };
+
+    // Get tooltip content if metric key is provided
+    const tooltipData = metricKey ? getMetricTooltip(metricKey) : null;
+
+    /**
+     * Render the label element, optionally wrapped in a tooltip
+     */
+    const renderLabel = () => {
+        const labelElement = (
+            <div
+                className={cn(
+                    "text-sm text-muted-foreground font-medium mt-0.5 bg-popover",
+                    tooltipData &&
+                        "cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-2"
+                )}
+            >
+                {label}
+            </div>
+        );
+
+        // If we have tooltip data, wrap the label in a tooltip
+        if (tooltipData) {
+            return (
+                <Tooltip>
+                    <TooltipTrigger asChild>{labelElement}</TooltipTrigger>
+                    <TooltipContent
+                        side="top"
+                        className="max-w-xs p-3 space-y-1.5"
+                    >
+                        <p className="font-semibold text-base text-zinc-100">
+                            {tooltipData.name}
+                        </p>
+                        <p className="text-sm leading-relaxed text-zinc-300">
+                            {tooltipData.description}
+                        </p>
+                        <p className="text-sm leading-relaxed text-zinc-400 italic">
+                            {tooltipData.significance}
+                        </p>
+                    </TooltipContent>
+                </Tooltip>
+            );
+        }
+
+        return labelElement;
+    };
 
     return (
         <div className={cn("text-center", className)}>
@@ -210,9 +321,7 @@ export function StatValue({
                     </span>
                 )}
             </div>
-            <div className="text-xs text-muted-foreground font-medium mt-0.5">
-                {label}
-            </div>
+            {renderLabel()}
         </div>
     );
 }

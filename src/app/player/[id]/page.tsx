@@ -32,8 +32,9 @@ export default function PlayerPage() {
     const { setSelectedSeason, setPlayer } = usePlayerStore();
 
     // Local state for full player data
-    const [playerData, setPlayerData] =
-        React.useState<PlayerWithStats | null>(null);
+    const [playerData, setPlayerData] = React.useState<PlayerWithStats | null>(
+        null
+    );
     const [isLoading, setIsLoading] = React.useState(true);
 
     // Available seasons
@@ -80,7 +81,11 @@ export default function PlayerPage() {
                 <div className="max-w-4xl mx-auto px-4 py-6">
                     {/* Back button */}
                     <Link href="/">
-                        <Button variant="ghost" size="sm" className="mb-6 -ml-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mb-6 -ml-2"
+                        >
                             <svg
                                 className="w-4 h-4 mr-2"
                                 fill="none"
@@ -130,7 +135,11 @@ export default function PlayerPage() {
             <main className="min-h-screen">
                 <div className="max-w-4xl mx-auto px-4 py-6">
                     <Link href="/">
-                        <Button variant="ghost" size="sm" className="mb-6 -ml-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mb-6 -ml-2"
+                        >
                             <svg
                                 className="w-4 h-4 mr-2"
                                 fill="none"
