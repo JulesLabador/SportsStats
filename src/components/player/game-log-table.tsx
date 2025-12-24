@@ -12,6 +12,158 @@ import type { WeeklyStat, PlayerPosition, PositionStats } from "@/lib/types";
 import { isQBStats, isRBStats, isWRStats, isTEStats } from "@/lib/types";
 
 /**
+ * Performance tier type for discrete heatmap coloring
+ * Each tier represents a distinct level of performance for instant visual recognition
+ */
+type PerformanceTier = "elite" | "great" | "good" | "average" | "poor" | "zero";
+
+/**
+ * Negative stat tier type for stats where lower is better (e.g., interceptions)
+ */
+type NegativeTier = "clean" | "minor" | "concerning" | "bad" | "awful";
+
+/**
+ * Configuration for each performance tier
+ * Includes visual styling and descriptive label
+ */
+interface TierConfig {
+    /** CSS class for background color */
+    bgClass: string;
+    /** CSS class for text color */
+    textClass: string;
+    /** Human-readable label for the tier */
+    label: string;
+}
+
+/**
+ * Performance tier configurations for positive stats
+ * Uses a green scale with blue-purple gradient for elite performances
+ * Gradient = elite, then green scale from bright to dark
+ */
+const PERFORMANCE_TIERS: Record<PerformanceTier, TierConfig> = {
+    elite: {
+        bgClass: "bg-tier-elite",
+        textClass: "text-white font-bold",
+        label: "Elite",
+    },
+    great: {
+        bgClass: "bg-tier-great",
+        textClass: "text-white",
+        label: "Great",
+    },
+    good: {
+        bgClass: "bg-tier-good",
+        textClass: "text-white",
+        label: "Good",
+    },
+    average: {
+        bgClass: "bg-tier-average",
+        textClass: "text-zinc-200",
+        label: "Avg",
+    },
+    poor: {
+        bgClass: "bg-tier-poor",
+        textClass: "text-zinc-300",
+        label: "Low",
+    },
+    zero: {
+        bgClass: "bg-transparent",
+        textClass: "text-zinc-600",
+        label: "None",
+    },
+};
+
+/**
+ * Performance tier configurations for negative stats (like interceptions)
+ * Uses a spectrum from green (0 INTs) to red (3+ INTs)
+ */
+const NEGATIVE_TIERS: Record<NegativeTier, TierConfig> = {
+    clean: {
+        bgClass: "bg-tier-great",
+        textClass: "text-white font-bold",
+        label: "Clean",
+    },
+    minor: {
+        bgClass: "bg-tier-negative-mild",
+        textClass: "text-zinc-900",
+        label: "Minor",
+    },
+    concerning: {
+        bgClass: "bg-tier-negative-bad",
+        textClass: "text-white",
+        label: "Concerning",
+    },
+    bad: {
+        bgClass: "bg-tier-negative-awful",
+        textClass: "text-white",
+        label: "Bad",
+    },
+    awful: {
+        bgClass: "bg-red-600",
+        textClass: "text-white font-bold",
+        label: "Awful",
+    },
+};
+
+/**
+ * Get the performance tier for a positive stat value
+ *
+ * Elite tier is reserved for the actual best value(s) in the dataset.
+ * Other tiers are based on percentage of the threshold maxValue:
+ * - Elite: Only the actual max value in the column (gradient highlight)
+ * - Great: 75%+ of threshold
+ * - Good: 50-74% of threshold
+ * - Average: 25-49% of threshold
+ * - Poor: 1-24% of threshold
+ * - Zero: 0
+ *
+ * @param value - The stat value
+ * @param thresholdMax - The elite threshold for this stat (e.g., 400 for passing yards)
+ * @param actualMax - The actual max value in the dataset for this column
+ * @returns The performance tier
+ */
+const getPerformanceTier = (
+    value: number,
+    thresholdMax: number,
+    actualMax: number
+): PerformanceTier => {
+    // Zero values get no color
+    if (value === 0) return "zero";
+    // Guard against division by zero
+    if (thresholdMax === 0) return "average";
+
+    // Elite is ONLY for the actual best value in the column
+    if (value === actualMax && actualMax > 0) return "elite";
+
+    const ratio = value / thresholdMax;
+
+    // Other tiers based on threshold percentage
+    if (ratio >= 0.75) return "great";
+    if (ratio >= 0.5) return "good";
+    if (ratio >= 0.25) return "average";
+    return "poor";
+};
+
+/**
+ * Get the tier for negative stats (like interceptions)
+ * For negative stats, lower is better, so the logic is inverted:
+ * - 0: Clean (green) - no turnovers
+ * - 1: Minor (yellow) - one mistake
+ * - 2: Concerning (orange) - multiple mistakes
+ * - 3+: Bad/Awful (red) - serious turnover problems
+ *
+ * @param value - The stat value (e.g., number of interceptions)
+ * @returns The negative tier
+ */
+const getNegativeTier = (value: number): NegativeTier => {
+    if (value === 0) return "clean";
+    if (value === 1) return "minor";
+    if (value === 2) return "concerning";
+    if (value === 3) return "bad";
+    return "awful";
+};
+
+/**
  * Column configuration for the game log table
  */
 interface ColumnConfig {
@@ -188,49 +340,6 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
 };
 
 /**
- * Calculate intensity (0-1) for a value relative to max
- * Returns 0 for zero values, otherwise scales from 0.15 to 1
- */
-const getIntensity = (value: number, maxValue: number): number => {
-    if (value === 0 || maxValue === 0) return 0;
-    // Minimum intensity of 0.15 for non-zero values, max of 1
-    const minIntensity = 0.15;
-    const ratio = value / maxValue;
-    return minIntensity + ratio * (1 - minIntensity);
-};
-
-/**
- * Get the background color style for a cell based on intensity
- * Uses green for positive stats, red for negative stats (like INTs)
- */
-const getCellStyle = (
-    intensity: number,
-    isNegativeStat: boolean = false
-): React.CSSProperties => {
-    if (intensity === 0) {
-        return { backgroundColor: "transparent" };
-    }
-
-    // Use oklch for smooth color transitions
-    // Green for positive stats, red/orange for negative stats
-    if (isNegativeStat) {
-        // Red-orange for negative stats (INTs)
-        return {
-            backgroundColor: `oklch(${0.45 + intensity * 0.2} ${
-                0.12 + intensity * 0.08
-            } 25 / ${intensity})`,
-        };
-    }
-
-    // Green for positive stats
-    return {
-        backgroundColor: `oklch(${0.45 + intensity * 0.27} ${
-            0.1 + intensity * 0.09
-        } 145 / ${intensity})`,
-    };
-};
-
-/**
  * Props for the GameLogTable component
  */
 interface GameLogTableProps {
@@ -269,15 +378,15 @@ function ColumnHeader({ column }: ColumnHeaderProps) {
                     </TooltipTrigger>
                     <TooltipContent
                         side="top"
-                        className="max-w-xs p-3 space-y-1.5"
+                        className="max-w-sm p-3 space-y-1.5"
                     >
-                        <p className="font-semibold text-sm text-zinc-100">
+                        <p className="font-semibold text-base text-zinc-100">
                             {tooltipData.name}
                         </p>
-                        <p className="text-xs leading-relaxed text-zinc-300">
+                        <p className="text-sm leading-relaxed text-zinc-300">
                             {tooltipData.description}
                         </p>
-                        <p className="text-xs leading-relaxed text-zinc-400 italic">
+                        <p className="text-sm leading-relaxed text-zinc-400 italic">
                             {tooltipData.significance}
                         </p>
                     </TooltipContent>
@@ -299,14 +408,108 @@ function ColumnHeader({ column }: ColumnHeaderProps) {
 }
 
 /**
+ * Legend item configuration
+ */
+interface LegendItem {
+    bgClass: string;
+    label: string;
+}
+
+/**
+ * Performance legend items for positive stats
+ * Single green scale from bright (elite) to dark (low)
+ */
+const POSITIVE_LEGEND_ITEMS: LegendItem[] = [
+    { bgClass: "bg-tier-elite", label: "Elite" },
+    { bgClass: "bg-tier-great", label: "Great" },
+    { bgClass: "bg-tier-good", label: "Good" },
+    { bgClass: "bg-tier-average", label: "Avg" },
+    { bgClass: "bg-tier-poor", label: "Low" },
+];
+
+/**
+ * Performance legend items for negative stats (INTs)
+ */
+const NEGATIVE_LEGEND_ITEMS: LegendItem[] = [
+    { bgClass: "bg-tier-great", label: "0" },
+    { bgClass: "bg-tier-negative-mild", label: "1" },
+    { bgClass: "bg-tier-negative-bad", label: "2" },
+    { bgClass: "bg-tier-negative-awful", label: "3+" },
+];
+
+/**
+ * PerformanceLegend component
+ * Displays a visual guide for interpreting the heatmap colors
+ *
+ * @param showNegative - Whether to show the negative stats legend (for QBs)
+ */
+function PerformanceLegend({ showNegative }: { showNegative: boolean }) {
+    return (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground mb-4">
+            {/* Positive stats legend */}
+            <div className="flex items-center gap-2">
+                <span className="font-medium">Performance:</span>
+                <div className="flex items-center gap-1">
+                    {POSITIVE_LEGEND_ITEMS.map((item) => (
+                        <div
+                            key={item.label}
+                            className="flex items-center gap-1"
+                        >
+                            <div
+                                className={cn(
+                                    "w-4 h-4 rounded-sm",
+                                    item.bgClass
+                                )}
+                            />
+                            <span className="text-zinc-400">{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Negative stats legend (for QBs with INTs) */}
+            {showNegative && (
+                <div className="flex items-center gap-2">
+                    <span className="font-medium">INTs:</span>
+                    <div className="flex items-center gap-1">
+                        {NEGATIVE_LEGEND_ITEMS.map((item) => (
+                            <div
+                                key={item.label}
+                                className="flex items-center gap-1"
+                            >
+                                <div
+                                    className={cn(
+                                        "w-4 h-4 rounded-sm",
+                                        item.bgClass
+                                    )}
+                                />
+                                <span className="text-zinc-400">
+                                    {item.label}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/**
  * GameLogTable component
  *
- * Displays weekly stats in a table format similar to the Sleeper app:
+ * Displays weekly stats in a table format with discrete performance tiers:
  * - Rows are weeks, columns are stats
- * - Each cell is color-coded based on value intensity
- * - Zero values have no color (like GitHub commit graph)
- * - Highest values have the brightest color
+ * - Each cell is color-coded using discrete tiers (Elite/Great/Good/Average/Poor)
+ * - Zero values have no color
+ * - Includes a visual legend for easy interpretation
  * - Column headers include tooltips with metric explanations
+ *
+ * The discrete tier approach makes it instantly clear:
+ * - 🟢 Bright green = Elite game (top tier)
+ * - 🟢 Medium green = Great/Good game
+ * - ⚫ Gray = Average/Below average
+ * - 🟡🟠🔴 Yellow/Orange/Red = Bad game (for negative stats like INTs)
  *
  * @example
  * ```tsx
@@ -329,99 +532,127 @@ export function GameLogTable({
         [weeklyStats]
     );
 
+    // Calculate the actual max value for each column from the data
+    // This is used to determine which cell(s) get the "elite" gradient
+    const columnMaxValues = React.useMemo(() => {
+        const maxValues: Record<string, number> = {};
+        columns.forEach((col) => {
+            const values = weeklyStats.map((stat) => col.getValue(stat.stats));
+            maxValues[col.key] = Math.max(...values, 0);
+        });
+        return maxValues;
+    }, [weeklyStats, columns]);
+
     // Identify negative stats (like interceptions)
     const negativeStats = new Set(["interceptions"]);
 
+    // Check if this position has negative stats to show in legend
+    const hasNegativeStats = position === "QB";
+
     return (
-        <div className={cn("overflow-x-auto", className)}>
-            <table className="w-full border-collapse">
-                {/* Header row with stat labels and tooltips */}
-                <thead>
-                    <tr>
-                        <th className="sticky left-0 z-10 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 pr-2 w-16">
-                            WK
-                        </th>
-                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 px-1 w-16">
-                            OPP
-                        </th>
-                        {columns.map((col) => (
-                            <ColumnHeader key={col.key} column={col} />
-                        ))}
-                    </tr>
-                </thead>
+        <div className={cn("space-y-2", className)}>
+            {/* Performance legend for visual reference */}
+            <PerformanceLegend showNegative={hasNegativeStats} />
 
-                {/* Data rows */}
-                <tbody>
-                    {sortedStats.map((stat) => {
-                        const isWin = stat.result.startsWith("W");
+            <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                    {/* Header row with stat labels and tooltips */}
+                    <thead>
+                        <tr>
+                            <th className="sticky left-0 z-10 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 pr-2 w-16">
+                                WK
+                            </th>
+                            <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-2 px-1 w-16">
+                                OPP
+                            </th>
+                            {columns.map((col) => (
+                                <ColumnHeader key={col.key} column={col} />
+                            ))}
+                        </tr>
+                    </thead>
 
-                        return (
-                            <tr
-                                key={stat.week}
-                                className="border-t border-border/50"
-                            >
-                                {/* Week number */}
-                                <td className="sticky left-0 z-10 py-2 pr-2">
-                                    <span className="text-sm font-medium text-muted-foreground">
-                                        {stat.week}
-                                    </span>
-                                </td>
+                    {/* Data rows */}
+                    <tbody>
+                        {sortedStats.map((stat) => {
+                            const isWin = stat.result.startsWith("W");
 
-                                {/* Opponent */}
-                                <td className="py-2 px-1">
-                                    <span
-                                        className={cn(
-                                            "text-sm font-medium",
-                                            isWin
-                                                ? "text-stat-positive"
-                                                : "text-destructive"
-                                        )}
-                                    >
-                                        {stat.location === "A" ? "@" : ""}
-                                        {stat.opponent}
-                                    </span>
-                                </td>
+                            return (
+                                <tr
+                                    key={stat.week}
+                                    className="border-t border-border/50"
+                                >
+                                    {/* Week number */}
+                                    <td className="sticky left-0 z-10 py-2 pr-2">
+                                        <span className="text-sm font-medium text-muted-foreground">
+                                            {stat.week}
+                                        </span>
+                                    </td>
 
-                                {/* Stat cells */}
-                                {columns.map((col) => {
-                                    const value = col.getValue(stat.stats);
-                                    // Use fixed metric-based max value for consistent coloring
-                                    const intensity = getIntensity(
-                                        value,
-                                        col.maxValue
-                                    );
-                                    const isNegative = negativeStats.has(
-                                        col.key
-                                    );
-                                    const cellStyle = getCellStyle(
-                                        intensity,
-                                        isNegative
-                                    );
-
-                                    return (
-                                        <td
-                                            key={col.key}
-                                            className="py-2 px-1 text-center"
+                                    {/* Opponent */}
+                                    <td className="py-2 px-1">
+                                        <span
+                                            className={cn(
+                                                "text-sm font-medium",
+                                                isWin
+                                                    ? "text-stat-positive"
+                                                    : "text-destructive"
+                                            )}
                                         >
-                                            <div
-                                                className={cn(
-                                                    "rounded-md px-2 py-1.5 text-sm font-semibold tabular-nums transition-colors",
-                                                    intensity === 0
-                                                        ? "text-muted-foreground/50"
-                                                        : "text-foreground"
-                                                )}
-                                                style={cellStyle}
+                                            {stat.location === "A" ? "@" : ""}
+                                            {stat.opponent}
+                                        </span>
+                                    </td>
+
+                                    {/* Stat cells with discrete tier coloring */}
+                                    {columns.map((col) => {
+                                        const value = col.getValue(stat.stats);
+                                        const isNegative = negativeStats.has(
+                                            col.key
+                                        );
+
+                                        // Get the appropriate tier and config
+                                        let tierConfig: TierConfig;
+                                        if (isNegative) {
+                                            // For negative stats (INTs), use the negative tier system
+                                            const tier = getNegativeTier(value);
+                                            tierConfig = NEGATIVE_TIERS[tier];
+                                        } else {
+                                            // For positive stats, use the standard performance tier
+                                            // Pass both the threshold max and actual max from data
+                                            const actualMax =
+                                                columnMaxValues[col.key];
+                                            const tier = getPerformanceTier(
+                                                value,
+                                                col.maxValue,
+                                                actualMax
+                                            );
+                                            tierConfig =
+                                                PERFORMANCE_TIERS[tier];
+                                        }
+
+                                        return (
+                                            <td
+                                                key={col.key}
+                                                className="py-2 px-1 text-center"
                                             >
-                                                {value}
-                                            </div>
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
+                                                <div
+                                                    className={cn(
+                                                        "rounded-md px-2 py-1.5 text-sm tabular-nums transition-colors",
+                                                        tierConfig.bgClass,
+                                                        tierConfig.textClass
+                                                    )}
+                                                >
+                                                    {value}
+                                                </div>
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }
@@ -433,6 +664,18 @@ export function GameLogTableSkeleton({ className }: { className?: string }) {
     return (
         <div className={cn("overflow-x-auto", className)}>
             <div className="space-y-2">
+                {/* Legend skeleton */}
+                <div className="flex gap-4 mb-4">
+                    <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                    <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <div
+                                key={i}
+                                className="h-4 w-4 bg-muted rounded animate-pulse"
+                            />
+                        ))}
+                    </div>
+                </div>
                 {/* Header skeleton */}
                 <div className="flex gap-2">
                     <div className="h-6 w-12 bg-muted rounded animate-pulse" />
