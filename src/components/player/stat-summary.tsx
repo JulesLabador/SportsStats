@@ -249,7 +249,7 @@ export function StatSummary({
 
                 {/* Per game averages */}
                 <div className="pt-4 border-t border-border">
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-6">
                         Per Game Average
                     </h3>
                     <div className="grid grid-cols-3 gap-4">
@@ -266,9 +266,7 @@ export function StatSummary({
                             return (
                                 <StatValue
                                     key={`avg-${config.key}`}
-                                    label={config.label
-                                        .replace(" Yards", "")
-                                        .replace(" TDs", "")}
+                                    label={config.label}
                                     value={Math.round(avgValue * 10) / 10}
                                     performance={performance}
                                 />
