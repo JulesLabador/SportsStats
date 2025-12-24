@@ -177,26 +177,29 @@ interface ColumnConfig {
 
 /**
  * Get column configurations based on player position
+ * Shows complete stat picture for each position including secondary stats.
+ *
  * Max values are based on elite single-game performances:
  * - Passing yards: 400+ is elite (record ~500)
  * - Passing TDs: 4+ is elite (record 7)
- * - Rushing yards: 150+ is elite (record ~300)
- * - Receiving yards: 150+ is elite (record ~300)
+ * - Rushing yards: 150+ is elite for RB (record ~300), 75+ for QB/WR
+ * - Receiving yards: 150+ is elite for WR, 100+ for TE, 75+ for RB
  * - TDs: 3+ is elite for any position
  * - Completions: 35+ is elite
- * - Carries: 25+ is elite
- * - Receptions: 12+ is elite
- * - Targets: 15+ is elite
+ * - Carries: 25+ is elite for RB, 10+ for QB
+ * - Receptions: 12+ is elite for WR, 10+ for TE, 8+ for RB
+ * - Targets: 15+ is elite for WR, 12+ for TE
  * - Interceptions: 3+ is a bad game
  */
 const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
     switch (position) {
         case "QB":
+            // QBs: Passing stats + rushing stats (dual-threat value)
             return [
                 {
                     key: "passingYards",
                     label: "Passing Yards",
-                    shortLabel: "YD",
+                    shortLabel: "PASS",
                     getValue: (stats) =>
                         isQBStats(stats) ? stats.passingYards : 0,
                     maxValue: 400, // 400+ yards is an elite game
@@ -212,7 +215,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                 {
                     key: "passingTDs",
                     label: "Passing TDs",
-                    shortLabel: "TD",
+                    shortLabel: "PTD",
                     getValue: (stats) =>
                         isQBStats(stats) ? stats.passingTDs : 0,
                     maxValue: 4, // 4+ TDs is an elite game
@@ -225,13 +228,30 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                         isQBStats(stats) ? stats.interceptions : 0,
                     maxValue: 3, // 3+ INTs is a bad game
                 },
+                {
+                    key: "rushingYards",
+                    label: "Rushing Yards",
+                    shortLabel: "RUSH",
+                    getValue: (stats) =>
+                        isQBStats(stats) ? stats.rushingYards : 0,
+                    maxValue: 75, // 75+ rushing yards for QB is elite
+                },
+                {
+                    key: "rushingTDs",
+                    label: "Rushing TDs",
+                    shortLabel: "RTD",
+                    getValue: (stats) =>
+                        isQBStats(stats) ? stats.rushingTDs : 0,
+                    maxValue: 2, // 2+ rushing TDs for QB is elite
+                },
             ];
         case "RB":
+            // RBs: Rushing stats + receiving stats (pass-catching backs)
             return [
                 {
                     key: "rushingYards",
                     label: "Rushing Yards",
-                    shortLabel: "YD",
+                    shortLabel: "RUSH",
                     getValue: (stats) =>
                         isRBStats(stats) ? stats.rushingYards : 0,
                     maxValue: 150, // 150+ rushing yards is elite
@@ -246,34 +266,43 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                 {
                     key: "rushingTDs",
                     label: "Rushing TDs",
-                    shortLabel: "TD",
+                    shortLabel: "RTD",
                     getValue: (stats) =>
                         isRBStats(stats) ? stats.rushingTDs : 0,
                     maxValue: 3, // 3+ rushing TDs is elite
                 },
                 {
+                    key: "receivingYards",
+                    label: "Receiving Yards",
+                    shortLabel: "REC",
+                    getValue: (stats) =>
+                        isRBStats(stats) ? stats.receivingYards : 0,
+                    maxValue: 75, // 75+ receiving yards for RB is elite
+                },
+                {
                     key: "receptions",
                     label: "Receptions",
-                    shortLabel: "REC",
+                    shortLabel: "CTCH",
                     getValue: (stats) =>
                         isRBStats(stats) ? stats.receptions : 0,
                     maxValue: 8, // 8+ receptions for RB is elite
                 },
                 {
-                    key: "receivingYards",
-                    label: "Receiving Yards",
-                    shortLabel: "REC YD",
+                    key: "receivingTDs",
+                    label: "Receiving TDs",
+                    shortLabel: "RCTD",
                     getValue: (stats) =>
-                        isRBStats(stats) ? stats.receivingYards : 0,
-                    maxValue: 75, // 75+ receiving yards for RB is elite
+                        isRBStats(stats) ? stats.receivingTDs : 0,
+                    maxValue: 2, // 2+ receiving TDs for RB is elite
                 },
             ];
         case "WR":
+            // WRs: Receiving stats + rushing stats (jet sweeps, end-arounds)
             return [
                 {
                     key: "receivingYards",
                     label: "Receiving Yards",
-                    shortLabel: "YD",
+                    shortLabel: "REC",
                     getValue: (stats) =>
                         isWRStats(stats) ? stats.receivingYards : 0,
                     maxValue: 150, // 150+ receiving yards is elite
@@ -281,7 +310,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                 {
                     key: "receptions",
                     label: "Receptions",
-                    shortLabel: "REC",
+                    shortLabel: "CTCH",
                     getValue: (stats) =>
                         isWRStats(stats) ? stats.receptions : 0,
                     maxValue: 12, // 12+ receptions is elite
@@ -296,18 +325,35 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                 {
                     key: "receivingTDs",
                     label: "Receiving TDs",
-                    shortLabel: "TD",
+                    shortLabel: "RCTD",
                     getValue: (stats) =>
                         isWRStats(stats) ? stats.receivingTDs : 0,
                     maxValue: 2, // 2+ receiving TDs is elite
                 },
+                {
+                    key: "rushingYards",
+                    label: "Rushing Yards",
+                    shortLabel: "RUSH",
+                    getValue: (stats) =>
+                        isWRStats(stats) ? stats.rushingYards : 0,
+                    maxValue: 50, // 50+ rushing yards for WR is elite
+                },
+                {
+                    key: "rushingTDs",
+                    label: "Rushing TDs",
+                    shortLabel: "RTD",
+                    getValue: (stats) =>
+                        isWRStats(stats) ? stats.rushingTDs : 0,
+                    maxValue: 1, // 1+ rushing TD for WR is notable
+                },
             ];
         case "TE":
+            // TEs: Primarily receiving stats (rushing is very rare for TEs)
             return [
                 {
                     key: "receivingYards",
                     label: "Receiving Yards",
-                    shortLabel: "YD",
+                    shortLabel: "REC",
                     getValue: (stats) =>
                         isTEStats(stats) ? stats.receivingYards : 0,
                     maxValue: 100, // 100+ receiving yards for TE is elite
@@ -315,7 +361,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                 {
                     key: "receptions",
                     label: "Receptions",
-                    shortLabel: "REC",
+                    shortLabel: "CTCH",
                     getValue: (stats) =>
                         isTEStats(stats) ? stats.receptions : 0,
                     maxValue: 10, // 10+ receptions for TE is elite
@@ -330,7 +376,7 @@ const getColumnConfigs = (position: PlayerPosition): ColumnConfig[] => {
                 {
                     key: "receivingTDs",
                     label: "Receiving TDs",
-                    shortLabel: "TD",
+                    shortLabel: "RCTD",
                     getValue: (stats) =>
                         isTEStats(stats) ? stats.receivingTDs : 0,
                     maxValue: 2, // 2+ receiving TDs is elite
