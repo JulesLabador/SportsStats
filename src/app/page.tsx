@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { SearchInput } from "@/components/search/search-input";
 import { useSearchStore } from "@/stores/search-store";
 import { searchPlayers, getFeaturedPlayers } from "@/lib/data";
+import { getTeamColor, getPositionColor } from "@/lib/team-colors";
+import { cn } from "@/lib/utils";
 import type { Player } from "@/lib/types";
 
 /**
@@ -166,6 +168,10 @@ interface PlayerCardProps {
 }
 
 function PlayerCard({ player, onClick }: PlayerCardProps) {
+    // Get team and position colors for badges
+    const teamColor = getTeamColor(player.team);
+    const positionColor = getPositionColor(player.position);
+
     return (
         <Card
             className="group cursor-pointer transition-colors hover:bg-card/80"
@@ -191,10 +197,22 @@ function PlayerCard({ player, onClick }: PlayerCardProps) {
                             </h3>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge
+                                variant="secondary"
+                                className={cn(
+                                    "text-xs font-semibold",
+                                    teamColor
+                                )}
+                            >
                                 {player.team}
                             </Badge>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge
+                                variant="secondary"
+                                className={cn(
+                                    "text-xs font-semibold",
+                                    positionColor
+                                )}
+                            >
                                 {player.position}
                             </Badge>
                         </div>

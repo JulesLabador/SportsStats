@@ -10,7 +10,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import type { Player, NFLTeam } from "@/lib/types";
+import { getTeamColor, getPositionColor } from "@/lib/team-colors";
+import type { Player } from "@/lib/types";
 
 /**
  * Props for the PlayerHeader component
@@ -27,55 +28,6 @@ interface PlayerHeaderProps {
     /** Additional CSS classes */
     className?: string;
 }
-
-/**
- * NFL team colors for badge styling
- * Using muted versions to maintain dark theme aesthetic
- */
-const teamColors: Partial<Record<NFLTeam, string>> = {
-    ARI: "bg-red-900/30 text-red-400",
-    ATL: "bg-red-900/30 text-red-400",
-    BAL: "bg-purple-900/30 text-purple-400",
-    BUF: "bg-blue-900/30 text-blue-400",
-    CAR: "bg-cyan-900/30 text-cyan-400",
-    CHI: "bg-orange-900/30 text-orange-400",
-    CIN: "bg-orange-900/30 text-orange-400",
-    CLE: "bg-orange-900/30 text-orange-400",
-    DAL: "bg-blue-900/30 text-blue-400",
-    DEN: "bg-orange-900/30 text-orange-400",
-    DET: "bg-blue-900/30 text-blue-400",
-    GB: "bg-green-900/30 text-green-400",
-    HOU: "bg-red-900/30 text-red-400",
-    IND: "bg-blue-900/30 text-blue-400",
-    JAX: "bg-teal-900/30 text-teal-400",
-    KC: "bg-red-900/30 text-red-400",
-    LAC: "bg-yellow-900/30 text-yellow-400",
-    LAR: "bg-blue-900/30 text-blue-400",
-    LV: "bg-gray-800/50 text-gray-300",
-    MIA: "bg-teal-900/30 text-teal-400",
-    MIN: "bg-purple-900/30 text-purple-400",
-    NE: "bg-blue-900/30 text-blue-400",
-    NO: "bg-yellow-900/30 text-yellow-400",
-    NYG: "bg-blue-900/30 text-blue-400",
-    NYJ: "bg-green-900/30 text-green-400",
-    PHI: "bg-green-900/30 text-green-400",
-    PIT: "bg-yellow-900/30 text-yellow-400",
-    SEA: "bg-green-900/30 text-green-400",
-    SF: "bg-red-900/30 text-red-400",
-    TB: "bg-red-900/30 text-red-400",
-    TEN: "bg-blue-900/30 text-blue-400",
-    WAS: "bg-red-900/30 text-red-400",
-};
-
-/**
- * Position badge colors
- */
-const positionColors = {
-    QB: "bg-stat-neutral/20 text-stat-neutral",
-    RB: "bg-stat-positive/20 text-stat-positive",
-    WR: "bg-stat-growth/20 text-stat-growth",
-    TE: "bg-purple-900/30 text-purple-400",
-};
 
 /**
  * PlayerHeader component
@@ -103,9 +55,8 @@ export function PlayerHeader({
     onSeasonChange,
     className,
 }: PlayerHeaderProps) {
-    const teamColor =
-        teamColors[player.team] || "bg-muted text-muted-foreground";
-    const positionColor = positionColors[player.position];
+    const teamColor = getTeamColor(player.team);
+    const positionColor = getPositionColor(player.position);
 
     return (
         <header className={cn("space-y-4", className)}>
