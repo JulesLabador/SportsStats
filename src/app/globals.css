@@ -54,6 +54,17 @@
   /* Reference: https://developer.apple.com/design/human-interface-guidelines/color */
   --color-apple-blue: #007AFF;
   --color-apple-purple: #AF52DE;
+
+  /* Performance tier colors for game log heatmap */
+  --color-tier-elite-start: var(--tier-elite-start);
+  --color-tier-elite-end: var(--tier-elite-end);
+  --color-tier-great: var(--tier-great);
+  --color-tier-good: var(--tier-good);
+  --color-tier-average: var(--tier-average);
+  --color-tier-poor: var(--tier-poor);
+  --color-tier-negative-mild: var(--tier-negative-mild);
+  --color-tier-negative-bad: var(--tier-negative-bad);
+  --color-tier-negative-awful: var(--tier-negative-awful);
 }
 
 /*
@@ -106,6 +117,17 @@
   --stat-neutral: oklch(0.65 0.18 250);     /* Blue - baseline/neutral */
   --stat-growth: oklch(0.82 0.18 85);       /* Yellow - growth/trends */
 
+  /* Performance tier colors - green scale with gradient for elite */
+  --tier-elite-start: #007AFF;              /* Apple Blue - elite gradient start */
+  --tier-elite-end: #AF52DE;                /* Apple Purple - elite gradient end */
+  --tier-great: oklch(0.68 0.20 145);       /* Bright green - great performance */
+  --tier-good: oklch(0.52 0.16 145);        /* Medium green - good performance */
+  --tier-average: oklch(0.38 0.10 145);     /* Muted green - average performance */
+  --tier-poor: oklch(0.26 0.06 145);        /* Dark green - below average */
+  --tier-negative-mild: oklch(0.50 0.12 85);  /* Yellow - mild negative (1 INT) */
+  --tier-negative-bad: oklch(0.55 0.18 40);   /* Orange - bad (2 INTs) */
+  --tier-negative-awful: oklch(0.55 0.22 25); /* Red - awful (3+ INTs) */
+
   /* Chart colors for data visualization */
   --chart-1: oklch(0.65 0.18 250);          /* Blue */
   --chart-2: oklch(0.72 0.19 145);          /* Green */
@@ -147,6 +169,15 @@
   --stat-positive: oklch(0.72 0.19 145);
   --stat-neutral: oklch(0.65 0.18 250);
   --stat-growth: oklch(0.82 0.18 85);
+  --tier-elite-start: #007AFF;
+  --tier-elite-end: #AF52DE;
+  --tier-great: oklch(0.68 0.20 145);
+  --tier-good: oklch(0.52 0.16 145);
+  --tier-average: oklch(0.38 0.10 145);
+  --tier-poor: oklch(0.26 0.06 145);
+  --tier-negative-mild: oklch(0.50 0.12 85);
+  --tier-negative-bad: oklch(0.55 0.18 40);
+  --tier-negative-awful: oklch(0.55 0.22 25);
   --chart-1: oklch(0.65 0.18 250);
   --chart-2: oklch(0.72 0.19 145);
   --chart-3: oklch(0.82 0.18 85);
@@ -193,5 +224,31 @@
   }
   .bg-stat-growth {
     background-color: var(--stat-growth);
+  }
+
+  /* Performance tier background colors */
+  .bg-tier-elite {
+    background: linear-gradient(135deg, var(--tier-elite-start), var(--tier-elite-end));
+  }
+  .bg-tier-great {
+    background-color: var(--tier-great);
+  }
+  .bg-tier-good {
+    background-color: var(--tier-good);
+  }
+  .bg-tier-average {
+    background-color: var(--tier-average);
+  }
+  .bg-tier-poor {
+    background-color: var(--tier-poor);
+  }
+  .bg-tier-negative-mild {
+    background-color: var(--tier-negative-mild);
+  }
+  .bg-tier-negative-bad {
+    background-color: var(--tier-negative-bad);
+  }
+  .bg-tier-negative-awful {
+    background-color: var(--tier-negative-awful);
   }
 }
