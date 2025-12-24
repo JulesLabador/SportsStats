@@ -12,8 +12,8 @@ import type { SportId, Json } from "@/lib/database.types";
 // SPORT TYPES
 // ============================================================================
 
-/** Re-export SportId for convenience */
-export type { SportId };
+/** Re-export SportId and Json for convenience */
+export type { SportId, Json };
 
 /** NFL team abbreviations */
 export type NFLTeam =
@@ -277,3 +277,136 @@ export function makePlayerSeasonKey(
 ): string {
     return `${playerProfileId}:${season}`;
 }
+
+// ============================================================================
+// CACHING TYPES
+// ============================================================================
+
+/** Supported data sources for caching */
+export type DataSource = "espn" | "pfr";
+
+/**
+ * Cache entry for API responses
+ */
+export interface CacheEntry {
+    id: string;
+    source: DataSource;
+    endpoint: string;
+    paramsHash: string;
+    responseData: Json;
+    season: number | null;
+    week: number | null;
+    gameId: string | null;
+    fetchedAt: Date;
+    expiresAt: Date;
+}
+
+/**
+ * Options for cache operations
+ */
+export interface CacheOptions {
+    /** Time-to-live in milliseconds */
+    ttlMs: number;
+    /** Season for cache key (optional) */
+    season?: number;
+    /** Week for cache key (optional) */
+    week?: number;
+    /** Game ID for cache key (optional) */
+    gameId?: string;
+}
+
+/**
+ * Default TTL values for different cache scenarios (in milliseconds)
+ */
+export const CACHE_TTL = {
+    /** Completed games - 24 hours */
+    COMPLETED_GAME: 24 * 60 * 60 * 1000,
+    /** In-progress games - 1 hour */
+    IN_PROGRESS_GAME: 60 * 60 * 1000,
+    /** Historical data - 7 days */
+    HISTORICAL: 7 * 24 * 60 * 60 * 1000,
+    /** Player info - 12 hours */
+    PLAYER_INFO: 12 * 60 * 60 * 1000,
+    /** Schedule data - 6 hours */
+    SCHEDULE: 6 * 60 * 60 * 1000,
+} as const;
+
+// ============================================================================
+// PLAYER IDENTITY TYPES
+// ============================================================================
+
+/** Confidence level for player identity matches */
+export type MatchConfidence = "exact" | "high" | "medium" | "low";
+
+/**
+ * Player identity mapping linking IDs across sources
+ */
+export interface PlayerIdentityMapping {
+    id: string;
+    playerId: string;
+    espnPlayerId: string | null;
+    pfrPlayerSlug: string | null;
+    matchConfidence: MatchConfidence;
+    matchMethod: string | null;
+    matchedAt: Date;
+    manualOverride: boolean;
+    extraIds: Record<string, string>;
+}
+
+/**
+ * Input for creating a new player identity mapping
+ */
+export interface CreateIdentityMappingInput {
+    playerId: string;
+    espnPlayerId?: string;
+    pfrPlayerSlug?: string;
+    matchConfidence: MatchConfidence;
+    matchMethod: string;
+}
+
+/**
+ * Result of a player matching operation
+ */
+export interface PlayerMatchResult {
+    playerId: string;
+    espnPlayerId: string | null;
+    pfrPlayerSlug: string | null;
+    confidence: MatchConfidence;
+    isNewMatch: boolean;
+}
+
+// ============================================================================
+// RATE LIMITING TYPES
+// ============================================================================
+
+/**
+ * Rate limit configuration per source
+ */
+export interface RateLimitConfig {
+    /** Maximum requests per second */
+    requestsPerSecond: number;
+    /** Maximum concurrent requests */
+    maxConcurrent: number;
+    /** Base delay for exponential backoff (ms) */
+    baseBackoffMs: number;
+    /** Maximum backoff delay (ms) */
+    maxBackoffMs: number;
+}
+
+/**
+ * Default rate limit configurations
+ */
+export const RATE_LIMITS: Record<DataSource, RateLimitConfig> = {
+    espn: {
+        requestsPerSecond: 1,
+        maxConcurrent: 1,
+        baseBackoffMs: 1000,
+        maxBackoffMs: 30000,
+    },
+    pfr: {
+        requestsPerSecond: 1,
+        maxConcurrent: 1,
+        baseBackoffMs: 2000,
+        maxBackoffMs: 60000,
+    },
+};

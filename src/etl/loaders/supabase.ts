@@ -8,6 +8,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { dbLogger } from "@/lib/logger";
 import type {
     DbPlayer,
     DbPlayerProfile,
@@ -20,6 +21,9 @@ import type {
     SportId,
 } from "../types";
 import { makePlayerSeasonKey } from "../types";
+
+/** Logger for loader operations */
+const log = dbLogger.child({ service: "loader" });
 
 /**
  * Result of a load operation
@@ -408,8 +412,9 @@ export class SupabaseLoader {
             .eq("id", runId);
 
         if (error) {
-            console.error(
-                `Failed to update ETL run ${runId}: ${error.message}`
+            log.error(
+                { error: error.message, runId },
+                "Failed to update ETL run"
             );
         }
     }

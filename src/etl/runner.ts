@@ -9,16 +9,26 @@
  * - Vercel Cron (via API route)
  * - Supabase Edge Functions
  * - Standalone Node.js script
+ *
+ * Adapter Types:
+ * - Simple adapters (nfl-mock): Retrieved from registry, no external deps
+ * - Configured adapters (nfl-espn, nfl-pfr, nfl-composite): Created via
+ *   factory functions with caching and services attached
  */
 
 import { createAdminClient } from "@/lib/supabase";
+import { etlLogger, createChildLogger, type Logger } from "@/lib/logger";
 import {
     getAdapter,
     getNFLAdapter,
     hasAdapter,
     getAdapterNames,
     isNFLAdapter,
+    createESPNAdapter,
+    createPFRAdapter,
+    createDefaultCompositeAdapter,
 } from "./adapters";
+import type { DataSourceAdapter, NFLDataSourceAdapter } from "./adapters/base";
 import type { AdapterFetchOptions } from "./adapters/base";
 import {
     transformPlayers,
@@ -36,6 +46,8 @@ import type {
     ExternalIdMap,
     PlayerProfileIdMap,
 } from "./types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
 /**
  * Default ETL options
@@ -45,6 +57,51 @@ const DEFAULT_OPTIONS: Partial<ETLRunOptions> = {
     fetchWeeklyStats: true,
     dryRun: false,
 };
+
+/**
+ * Adapters that require factory instantiation with Supabase client
+ * These adapters need caching, rate limiting, and/or player matching services
+ */
+const CONFIGURED_ADAPTERS = ["nfl-espn", "nfl-pfr", "nfl-composite"] as const;
+type ConfiguredAdapterName = (typeof CONFIGURED_ADAPTERS)[number];
+
+/**
+ * Check if an adapter requires factory instantiation
+ */
+function isConfiguredAdapter(name: string): name is ConfiguredAdapterName {
+    return CONFIGURED_ADAPTERS.includes(name as ConfiguredAdapterName);
+}
+
+/**
+ * Create a configured adapter with all services attached
+ *
+ * @param name - Adapter name
+ * @param supabaseClient - Supabase client for caching and services
+ * @returns Configured adapter instance
+ */
+function createConfiguredAdapter(
+    name: ConfiguredAdapterName,
+    supabaseClient: SupabaseClient<Database>
+): DataSourceAdapter {
+    switch (name) {
+        case "nfl-espn":
+            etlLogger.info("Creating ESPN adapter with caching enabled");
+            return createESPNAdapter(supabaseClient);
+
+        case "nfl-pfr":
+            etlLogger.info("Creating PFR adapter with caching enabled");
+            return createPFRAdapter(supabaseClient);
+
+        case "nfl-composite":
+            etlLogger.info(
+                "Creating Composite adapter with ESPN + PFR, caching, and player matching"
+            );
+            return createDefaultCompositeAdapter(supabaseClient);
+
+        default:
+            throw new Error(`Unknown configured adapter: ${name}`);
+    }
+}
 
 /**
  * Run the ETL pipeline with the specified options
@@ -78,32 +135,21 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
         };
     }
 
-    const adapter = getAdapter(config.adapterName)!;
-    const sportId = adapter.sportId;
-
     // Determine season (default to current year)
     const season = config.season ?? new Date().getFullYear();
 
-    console.log(
-        `[ETL] Starting run with adapter: ${adapter.name} v${adapter.version}`
-    );
-    console.log(
-        `[ETL] Sport: ${sportId}, Season: ${season}, Week: ${
-            config.week ?? "all"
-        }`
-    );
-    console.log(`[ETL] Dry run: ${config.dryRun}`);
-
-    // Initialize Supabase client and loader
+    // Initialize Supabase client early (needed for configured adapters)
+    let supabase: SupabaseClient<Database> | null = null;
     let loader: SupabaseLoader | null = null;
-    if (!config.dryRun) {
-        try {
-            const supabase = createAdminClient();
-            loader = new SupabaseLoader(supabase);
 
-            // Create ETL run record
-            runId = await loader.createETLRun(adapter.name, sportId);
-            console.log(`[ETL] Created run record: ${runId}`);
+    // For configured adapters or non-dry-run, we need Supabase
+    const needsSupabase =
+        isConfiguredAdapter(config.adapterName) || !config.dryRun;
+
+    if (needsSupabase) {
+        try {
+            supabase = createAdminClient();
+            loader = new SupabaseLoader(supabase);
         } catch (error) {
             const message =
                 error instanceof Error ? error.message : "Unknown error";
@@ -111,7 +157,7 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
                 success: false,
                 runId: "",
                 adapterName: config.adapterName,
-                sportId,
+                sportId: "nfl", // Default for error response
                 recordsProcessed: 0,
                 duration: Date.now() - startTime,
                 errors: [`Failed to initialize Supabase: ${message}`],
@@ -119,16 +165,71 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
         }
     }
 
+    // Get or create the adapter
+    let adapter: DataSourceAdapter;
+
+    if (isConfiguredAdapter(config.adapterName)) {
+        // Configured adapters need factory instantiation with Supabase
+        if (!supabase) {
+            return {
+                success: false,
+                runId: "",
+                adapterName: config.adapterName,
+                sportId: "nfl",
+                recordsProcessed: 0,
+                duration: Date.now() - startTime,
+                errors: [
+                    `Adapter ${config.adapterName} requires Supabase connection for caching`,
+                ],
+            };
+        }
+        adapter = createConfiguredAdapter(config.adapterName, supabase);
+    } else {
+        // Simple adapters from registry
+        adapter = getAdapter(config.adapterName)!;
+    }
+
+    const sportId = adapter.sportId;
+
+    // Create a run-specific logger with context
+    const log = createChildLogger({
+        adapter: adapter.name,
+        version: adapter.version,
+        sport: sportId,
+        season,
+        week: config.week ?? "all",
+        dryRun: config.dryRun ?? false,
+    });
+
+    log.info("Starting ETL run");
+    log.debug(
+        { configured: isConfiguredAdapter(config.adapterName) },
+        "Adapter configuration"
+    );
+
+    // Create ETL run record (if not dry run)
+    if (!config.dryRun && loader) {
+        try {
+            runId = await loader.createETLRun(adapter.name, sportId);
+            log.info({ runId }, "Created ETL run record");
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : "Unknown error";
+            errors.push(`Warning: Failed to create run record: ${message}`);
+            log.warn({ error: message }, "Failed to create run record");
+        }
+    }
+
     try {
         // Health check
-        console.log(`[ETL] Running health check...`);
+        log.debug("Running health check...");
         const healthResult = await adapter.healthCheck();
         if (!healthResult.healthy) {
             throw new Error(
                 `Adapter health check failed: ${healthResult.message}`
             );
         }
-        console.log(`[ETL] Health check passed (${healthResult.latencyMs}ms)`);
+        log.info({ latencyMs: healthResult.latencyMs }, "Health check passed");
 
         // Prepare fetch options
         const fetchOptions: AdapterFetchOptions = {
@@ -144,9 +245,9 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
         // STEP 1: Fetch and load players (core identity)
         // =====================================================================
         if (config.fetchPlayers) {
-            console.log(`[ETL] Fetching players...`);
+            log.info("Fetching players...");
             const rawPlayers = await adapter.fetchPlayers(fetchOptions);
-            console.log(`[ETL] Fetched ${rawPlayers.length} players`);
+            log.info({ count: rawPlayers.length }, "Fetched players");
 
             // Transform
             const { players, externalIdMap: playerIdMap } =
@@ -155,8 +256,9 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
 
             // Validate
             const validPlayers = players.filter(validatePlayer);
-            console.log(
-                `[ETL] ${validPlayers.length}/${players.length} players valid`
+            log.info(
+                { valid: validPlayers.length, total: players.length },
+                "Players validated"
             );
 
             // Load (if not dry run)
@@ -164,7 +266,7 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
                 const result = await loader.loadPlayers(validPlayers);
                 totalRecordsProcessed += result.recordsUpserted;
                 errors.push(...result.errors);
-                console.log(`[ETL] Loaded ${result.recordsUpserted} players`);
+                log.info({ loaded: result.recordsUpserted }, "Loaded players");
             }
         }
 
@@ -172,9 +274,9 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
         // STEP 2: Fetch and load player profiles (sport-specific)
         // =====================================================================
         if (config.fetchPlayers) {
-            console.log(`[ETL] Fetching player profiles...`);
+            log.info("Fetching player profiles...");
             const rawProfiles = await adapter.fetchPlayerProfiles(fetchOptions);
-            console.log(`[ETL] Fetched ${rawProfiles.length} player profiles`);
+            log.info({ count: rawProfiles.length }, "Fetched player profiles");
 
             // Transform
             const profiles = transformPlayerProfiles(
@@ -184,8 +286,9 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
 
             // Validate
             const validProfiles = profiles.filter(validatePlayerProfile);
-            console.log(
-                `[ETL] ${validProfiles.length}/${profiles.length} profiles valid`
+            log.info(
+                { valid: validProfiles.length, total: profiles.length },
+                "Profiles validated"
             );
 
             // Load (if not dry run)
@@ -194,8 +297,9 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
                 totalRecordsProcessed += result.recordsUpserted;
                 errors.push(...result.errors);
                 playerProfileIdMap = result.playerProfileIdMap;
-                console.log(
-                    `[ETL] Loaded ${result.recordsUpserted} player profiles`
+                log.info(
+                    { loaded: result.recordsUpserted },
+                    "Loaded player profiles"
                 );
             }
         }
@@ -205,7 +309,7 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
         // =====================================================================
         if (isNFLAdapter(adapter)) {
             await processNFLData(
-                adapter,
+                adapter as NFLDataSourceAdapter,
                 fetchOptions,
                 config,
                 loader,
@@ -214,7 +318,8 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
                 errors,
                 (count) => {
                     totalRecordsProcessed += count;
-                }
+                },
+                log
             );
         }
         // Add other sports here:
@@ -227,8 +332,9 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
         }
 
         const duration = Date.now() - startTime;
-        console.log(
-            `[ETL] Completed in ${duration}ms. Total records: ${totalRecordsProcessed}`
+        log.info(
+            { duration, totalRecords: totalRecordsProcessed },
+            "ETL run completed"
         );
 
         return {
@@ -255,7 +361,7 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
             );
         }
 
-        console.error(`[ETL] Failed: ${message}`);
+        log.error({ error: message }, "ETL run failed");
 
         return {
             success: false,
@@ -273,18 +379,19 @@ export async function runETL(options: ETLRunOptions): Promise<ETLRunResult> {
  * Process NFL-specific data (seasons and weekly stats)
  */
 async function processNFLData(
-    adapter: ReturnType<typeof getNFLAdapter> & object,
+    adapter: NFLDataSourceAdapter,
     fetchOptions: AdapterFetchOptions,
     config: ETLRunOptions & typeof DEFAULT_OPTIONS,
     loader: SupabaseLoader | null,
     externalIdMap: ExternalIdMap,
     playerProfileIdMap: PlayerProfileIdMap,
     errors: string[],
-    addRecords: (count: number) => void
+    addRecords: (count: number) => void,
+    log: Logger
 ): Promise<void> {
     // Get or fetch player profile ID map
     if (playerProfileIdMap.size === 0 && !config.dryRun && loader) {
-        console.log(`[ETL] Fetching existing player profile IDs...`);
+        log.debug("Fetching existing player profile IDs...");
         playerProfileIdMap = await loader.getPlayerProfileIdMap("nfl");
     }
 
@@ -292,9 +399,9 @@ async function processNFLData(
     // STEP 3: Fetch and load NFL player seasons
     // =========================================================================
     if (config.fetchPlayers) {
-        console.log(`[ETL] Fetching NFL player seasons...`);
+        log.info("Fetching NFL player seasons...");
         const rawSeasons = await adapter.fetchPlayerSeasons(fetchOptions);
-        console.log(`[ETL] Fetched ${rawSeasons.length} NFL player seasons`);
+        log.info({ count: rawSeasons.length }, "Fetched NFL player seasons");
 
         // Transform
         const seasons = transformNFLPlayerSeasons(
@@ -308,8 +415,9 @@ async function processNFLData(
             const result = await loader.loadNFLPlayerSeasons(seasons);
             addRecords(result.recordsUpserted);
             errors.push(...result.errors);
-            console.log(
-                `[ETL] Loaded ${result.recordsUpserted} NFL player seasons`
+            log.info(
+                { loaded: result.recordsUpserted },
+                "Loaded NFL player seasons"
             );
 
             // Store the player season ID map for weekly stats
@@ -325,9 +433,9 @@ async function processNFLData(
     // STEP 4: Fetch and load NFL weekly stats
     // =========================================================================
     if (config.fetchWeeklyStats) {
-        console.log(`[ETL] Fetching NFL weekly stats...`);
+        log.info("Fetching NFL weekly stats...");
         const rawStats = await adapter.fetchWeeklyStats(fetchOptions);
-        console.log(`[ETL] Fetched ${rawStats.length} NFL weekly stat records`);
+        log.info({ count: rawStats.length }, "Fetched NFL weekly stat records");
 
         // Transform
         const stats = transformNFLWeeklyStats(
@@ -338,7 +446,10 @@ async function processNFLData(
 
         // Validate
         const validStats = stats.filter(validateNFLWeeklyStat);
-        console.log(`[ETL] ${validStats.length}/${stats.length} stats valid`);
+        log.info(
+            { valid: validStats.length, total: stats.length },
+            "Weekly stats validated"
+        );
 
         // Load (if not dry run)
         if (!config.dryRun && loader) {
@@ -350,9 +461,7 @@ async function processNFLData(
             )._nflPlayerSeasonIdMap;
 
             if (!playerSeasonIdMap || playerSeasonIdMap.size === 0) {
-                console.log(
-                    `[ETL] Fetching NFL player season IDs from database...`
-                );
+                log.debug("Fetching NFL player season IDs from database...");
                 playerSeasonIdMap = await loader.getNFLPlayerSeasonIdMap(
                     fetchOptions.season
                 );
@@ -364,8 +473,9 @@ async function processNFLData(
             );
             addRecords(result.recordsUpserted);
             errors.push(...result.errors);
-            console.log(
-                `[ETL] Loaded ${result.recordsUpserted} NFL weekly stats`
+            log.info(
+                { loaded: result.recordsUpserted },
+                "Loaded NFL weekly stats"
             );
         }
     }

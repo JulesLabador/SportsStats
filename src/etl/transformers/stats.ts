@@ -19,6 +19,10 @@ import type {
     PlayerProfileIdMap,
     SportId,
 } from "../types";
+import { createChildLogger } from "@/lib/logger";
+
+/** Logger for transformer operations */
+const log = createChildLogger({ component: "transformer" });
 
 // ============================================================================
 // Core Player Transformations (shared across sports)
@@ -72,8 +76,9 @@ export function transformPlayerProfiles(
         const playerId = externalIdMap.get(raw.playerExternalId);
 
         if (!playerId) {
-            console.warn(
-                `[Transformer] Unknown player external ID: ${raw.playerExternalId}`
+            log.warn(
+                { externalId: raw.playerExternalId },
+                "Unknown player external ID"
             );
             continue;
         }
@@ -113,8 +118,9 @@ export function transformNFLPlayerSeasons(
         const playerId = externalIdMap.get(raw.playerExternalId);
 
         if (!playerId) {
-            console.warn(
-                `[Transformer] Unknown player external ID: ${raw.playerExternalId}`
+            log.warn(
+                { externalId: raw.playerExternalId },
+                "Unknown player external ID"
             );
             continue;
         }
@@ -123,9 +129,7 @@ export function transformNFLPlayerSeasons(
         const playerProfileId = playerProfileIdMap.get(playerId);
 
         if (!playerProfileId) {
-            console.warn(
-                `[Transformer] No NFL profile found for player: ${playerId}`
-            );
+            log.warn({ playerId }, "No NFL profile found for player");
             continue;
         }
 
@@ -172,8 +176,9 @@ export function transformNFLWeeklyStats(
         const playerId = externalIdMap.get(raw.playerExternalId);
 
         if (!playerId) {
-            console.warn(
-                `[Transformer] Unknown player external ID in stats: ${raw.playerExternalId}`
+            log.warn(
+                { externalId: raw.playerExternalId },
+                "Unknown player external ID in stats"
             );
             continue;
         }
@@ -182,9 +187,7 @@ export function transformNFLWeeklyStats(
         const playerProfileId = playerProfileIdMap.get(playerId);
 
         if (!playerProfileId) {
-            console.warn(
-                `[Transformer] No NFL profile found for player in stats: ${playerId}`
-            );
+            log.warn({ playerId }, "No NFL profile found for player in stats");
             continue;
         }
 
@@ -255,12 +258,12 @@ function normalizePlayerId(externalId: string): string {
  */
 export function validatePlayer(player: DbPlayer): boolean {
     if (!player.id || player.id.length === 0) {
-        console.warn("[Validator] Player missing ID");
+        log.warn("Player missing ID");
         return false;
     }
 
     if (!player.name || player.name.length === 0) {
-        console.warn(`[Validator] Player ${player.id} missing name`);
+        log.warn({ playerId: player.id }, "Player missing name");
         return false;
     }
 
@@ -275,22 +278,18 @@ export function validatePlayer(player: DbPlayer): boolean {
  */
 export function validatePlayerProfile(profile: DbPlayerProfile): boolean {
     if (!profile.player_id || profile.player_id.length === 0) {
-        console.warn("[Validator] Profile missing player_id");
+        log.warn("Profile missing player_id");
         return false;
     }
 
     const validSports: SportId[] = ["nfl", "mlb", "nba", "f1"];
     if (!validSports.includes(profile.sport_id)) {
-        console.warn(
-            `[Validator] Profile has invalid sport_id: ${profile.sport_id}`
-        );
+        log.warn({ sportId: profile.sport_id }, "Profile has invalid sport_id");
         return false;
     }
 
     if (!profile.position || profile.position.length === 0) {
-        console.warn(
-            `[Validator] Profile for ${profile.player_id} missing position`
-        );
+        log.warn({ playerId: profile.player_id }, "Profile missing position");
         return false;
     }
 
@@ -310,17 +309,17 @@ export function validateNFLWeeklyStat(
     }
 ): boolean {
     if (stat.week < 1 || stat.week > 18) {
-        console.warn(`[Validator] Invalid week number: ${stat.week}`);
+        log.warn({ week: stat.week }, "Invalid week number");
         return false;
     }
 
     if (stat.season < 2000 || stat.season > new Date().getFullYear() + 1) {
-        console.warn(`[Validator] Invalid season: ${stat.season}`);
+        log.warn({ season: stat.season }, "Invalid season");
         return false;
     }
 
     if (!["H", "A"].includes(stat.location)) {
-        console.warn(`[Validator] Invalid location: ${stat.location}`);
+        log.warn({ location: stat.location }, "Invalid location");
         return false;
     }
 
