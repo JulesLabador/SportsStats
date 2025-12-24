@@ -3,29 +3,46 @@
  *
  * Provides server-side and client-side Supabase clients for database operations.
  * Used by the ETL pipeline and application queries.
+ *
+ * Note: Environment variables are read at function call time (not module load time)
+ * to support dotenv loading in CLI scripts.
  */
 
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
-// Environment variables for Supabase connection
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+/**
+ * Gets environment variables at call time
+ * This allows dotenv to load before these are accessed
+ */
+function getEnvVars() {
+    return {
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        supabaseAnonKey:
+            process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+        supabaseSecretKey: process.env.SUPABASE_SECRET_KEY,
+    };
+}
 
 /**
  * Validates that required environment variables are set
  * @throws Error if required variables are missing
  */
-function validateEnvVars(): void {
+function validateEnvVars(): { supabaseUrl: string; supabaseAnonKey: string } {
+    const { supabaseUrl, supabaseAnonKey } = getEnvVars();
+
     if (!supabaseUrl) {
-        throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable");
+        throw new Error(
+            "Missing NEXT_PUBLIC_SUPABASE_URL environment variable"
+        );
     }
     if (!supabaseAnonKey) {
         throw new Error(
-            "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable"
+            "Missing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY environment variable"
         );
     }
+
+    return { supabaseUrl, supabaseAnonKey };
 }
 
 /**
@@ -33,8 +50,8 @@ function validateEnvVars(): void {
  * Uses the anon key with Row Level Security
  */
 export function createBrowserClient() {
-    validateEnvVars();
-    return createClient<Database>(supabaseUrl!, supabaseAnonKey!);
+    const { supabaseUrl, supabaseAnonKey } = validateEnvVars();
+    return createClient<Database>(supabaseUrl, supabaseAnonKey);
 }
 
 /**
@@ -42,8 +59,8 @@ export function createBrowserClient() {
  * Uses the anon key - suitable for Server Components and API routes
  */
 export function createServerClient() {
-    validateEnvVars();
-    return createClient<Database>(supabaseUrl!, supabaseAnonKey!, {
+    const { supabaseUrl, supabaseAnonKey } = validateEnvVars();
+    return createClient<Database>(supabaseUrl, supabaseAnonKey, {
         auth: {
             persistSession: false,
         },
@@ -52,17 +69,20 @@ export function createServerClient() {
 
 /**
  * Creates a Supabase client with admin privileges for ETL operations
- * Uses the service role key - bypasses Row Level Security
+ * Uses the secret key - bypasses Row Level Security
  * ONLY use this for server-side ETL operations, never expose to client
  */
 export function createAdminClient() {
-    validateEnvVars();
-    if (!supabaseServiceRoleKey) {
+    const { supabaseUrl } = validateEnvVars();
+    const { supabaseSecretKey } = getEnvVars();
+
+    if (!supabaseSecretKey) {
         throw new Error(
-            "Missing SUPABASE_SERVICE_ROLE_KEY environment variable - required for admin operations"
+            "Missing SUPABASE_SECRET_KEY environment variable - required for admin operations"
         );
     }
-    return createClient<Database>(supabaseUrl!, supabaseServiceRoleKey, {
+
+    return createClient<Database>(supabaseUrl, supabaseSecretKey, {
         auth: {
             persistSession: false,
             autoRefreshToken: false,
@@ -72,4 +92,3 @@ export function createAdminClient() {
 
 // Re-export types for convenience
 export type { Database };
-
