@@ -175,25 +175,131 @@ This document captures all key decisions made during development and the reasoni
 
 ---
 
-## 7. Future Considerations
+## 7. Multi-Sport Database Architecture
 
-### Supabase Integration
-**Planned**: Replace mock data with Supabase Postgres database.
+### Unified Player Identity
+**Decision**: Single `players` table for core identity, shared across all sports.
+
+**Reasoning**:
+- Multi-sport athletes (rare but possible) can share one identity
+- Single search experience across all sports
+- Core attributes (name, image) don't need duplication
+- Simplifies player lookup and deduplication
+
+### Sport-Specific Tables
+**Decision**: Separate tables per sport for seasons and stats (e.g., `nfl_player_seasons`, `nfl_weekly_stats`).
+
+**Reasoning**:
+- Type-safe, queryable stats with explicit columns
+- Each sport has unique stat requirements (NFL passing yards vs MLB batting average)
+- No JSONB for stats - better for aggregations and indexing
+- Easy to add new sports without schema changes to existing tables
+
+### Player Profiles
+**Decision**: `player_profiles` table links players to sports with sport-specific metadata.
+
+**Structure**:
+- `player_id` + `sport_id` (unique together)
+- `position` (varies by sport: QB, Pitcher, Point Guard, Driver)
+- `metadata` (JSONB for extras like college, draft info)
+
+**Reasoning**:
+- Position is common across sports but values differ
+- JSONB for metadata is appropriate (rarely queried, varies significantly)
+- Clean separation between identity and sport-specific data
+
+### Sports Reference Table
+**Decision**: `sports` table with predefined sports (NFL, MLB, NBA, F1).
+
+**Reasoning**:
+- Foreign key constraints ensure data integrity
+- Easy to add new sports by inserting rows
+- Consistent sport IDs across the system
+
+---
+
+## 8. ETL Pipeline Architecture
+
+### Sport-Specific Adapters
+**Decision**: Each adapter is tied to one sport (e.g., `NFLMockAdapter`, `MLBSportsDataIOAdapter`).
+
+**Reasoning**:
+- Clear responsibility per adapter
+- Sport-specific methods (NFL has `fetchWeeklyStats`, F1 would have `fetchRaceStats`)
+- Type safety with sport-specific interfaces
+- Easy to add new data sources per sport
+
+### Adapter Interface Hierarchy
+**Decision**: Base `DataSourceAdapter` interface with sport-specific extensions.
+
+**Structure**:
+```typescript
+interface DataSourceAdapter {
+  sportId: SportId;
+  fetchPlayers(): Promise<RawPlayer[]>;
+  fetchPlayerProfiles(): Promise<RawPlayerProfile[]>;
+  healthCheck(): Promise<HealthCheckResult>;
+}
+
+interface NFLDataSourceAdapter extends DataSourceAdapter {
+  sportId: "nfl";
+  fetchPlayerSeasons(): Promise<RawNFLPlayerSeason[]>;
+  fetchWeeklyStats(): Promise<RawNFLWeeklyStat[]>;
+}
+```
+
+**Reasoning**:
+- Common methods shared across sports
+- Sport-specific methods only where needed
+- Type guards enable safe casting
+
+### Explicit Stat Columns
+**Decision**: Use explicit columns for all stats instead of JSONB.
+
+**Reasoning**:
+- Easier SQL queries without JSON operators
+- Better for aggregations (`SUM(rushing_yards)`)
+- Schema documents exactly what stats exist
+- Columns can be indexed individually
+- Unused stats default to 0 (not null)
+
+### ETL Run Tracking
+**Decision**: Log all ETL runs in `etl_runs` table with sport reference.
+
+**Reasoning**:
+- Audit trail for data ingestion per sport
+- Debug failed runs with error messages
+- Monitor pipeline health over time
+- Filter runs by sport
+
+### Environment-Agnostic Runner
+**Decision**: Runner can execute from multiple environments.
+
+**Supported Environments**:
+- Vercel Cron (via `/api/etl` route)
+- Supabase Edge Functions
+- Standalone Node.js script (`scripts/run-etl.ts`)
+
+---
+
+## 9. Future Considerations
+
+### Real Data Source Integration
+**Planned**: Add adapters for SportsDataIO, Sportradar, or FantasyData.
 
 **Approach**:
-- Keep same TypeScript interfaces
-- Add database schema matching types
-- Implement cron jobs for data sync
-- Use Supabase client in Server Components
+- Implement sport-specific adapter interface (e.g., `NFLDataSourceAdapter`)
+- Register in adapter registry
+- No changes to runner/transformer/loader needed
 
-### SportsDataIO API
-**Planned**: Integrate real NFL data from SportsDataIO.
+### Additional Sports
+**Planned**: Add MLB, NBA, F1 support.
 
 **Approach**:
-- Background sync via cron jobs
-- Never fetch on user request
-- Store in Supabase for fast queries
-- Rate limit aware scheduling
+- Create sport-specific season and stats tables
+- Implement sport-specific adapter interfaces
+- Add transformer and loader methods for each sport
+- Database schema already supports this via `sports` table
 
 ### Search Optimization
 **Planned**: Implement proper search indexing.
@@ -205,7 +311,7 @@ This document captures all key decisions made during development and the reasoni
 
 ---
 
-## 8. File Organization
+## 10. File Organization
 
 ### Feature-Based Components
 **Decision**: Organize components by feature (player, search) not type.
@@ -224,6 +330,31 @@ This document captures all key decisions made during development and the reasoni
 - Prevents circular imports
 - Single source of truth
 - Simple for current project size
+
+### ETL Module Structure
+**Decision**: Organize ETL code in `src/etl/` with clear separation.
+
+**Structure**:
+```
+src/etl/
+├── adapters/              # Data source implementations
+│   ├── base.ts            # Interface definitions (base + sport-specific)
+│   ├── index.ts           # Adapter registry
+│   └── nfl-mock.adapter.ts # NFL mock adapter
+├── transformers/          # Raw -> DB format conversion
+│   └── stats.ts           # Multi-sport transformers
+├── loaders/               # Database operations
+│   └── supabase.ts        # Multi-sport loader
+├── runner.ts              # Main orchestrator (sport-aware)
+└── types.ts               # ETL-specific types (multi-sport)
+```
+
+**Reasoning**:
+- Clear separation of concerns
+- Easy to add new adapters per sport
+- Sport-specific adapters follow naming convention: `{sport}-{source}.adapter.ts`
+- Testable in isolation
+- Follows ETL best practices
 
 ---
 
