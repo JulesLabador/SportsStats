@@ -43,7 +43,7 @@ export default function HomePage() {
     return (
         <main className="min-h-screen">
             {/* Hero section with search */}
-            <section className="relative overflow-hidden">
+            <section className="relative">
                 {/* Background gradient */}
                 <div className="absolute inset-0 bg-gradient-to-b from-stat-neutral/5 to-transparent pointer-events-none" />
 
