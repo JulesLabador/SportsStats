@@ -198,31 +198,69 @@ export function StatBar({
                 )}
             </div>
 
-            {/* Bar container */}
-            <div
-                className={cn(
-                    "relative w-full rounded-full bg-muted/50",
-                    sizes.bar
-                )}
-            >
-                {/* Fill bar with Apple HIG blue-purple gradient */}
-                <div
-                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
-                    style={{
-                        width: `${fillPercent}%`,
-                        ...colors.barStyle,
-                    }}
-                />
-
-                {/* Average marker */}
-                {averagePercent !== null && (
+            {/* Bar container with tooltip explanation */}
+            <Tooltip>
+                <TooltipTrigger asChild>
                     <div
-                        className="absolute top-1/2 -translate-y-1/2 w-0.5 h-[150%] bg-foreground/40 rounded-full"
-                        style={{ left: `${averagePercent}%` }}
-                        title={`Average: ${average?.toLocaleString()}`}
-                    />
-                )}
-            </div>
+                        className={cn(
+                            "relative w-full rounded-full bg-muted/50 cursor-help",
+                            sizes.bar
+                        )}
+                    >
+                        {/* Fill bar with Apple HIG blue-purple gradient */}
+                        <div
+                            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+                            style={{
+                                width: `${fillPercent}%`,
+                                ...colors.barStyle,
+                            }}
+                        />
+
+                        {/* Average marker */}
+                        {averagePercent !== null && (
+                            <div
+                                className="absolute top-1/2 -translate-y-1/2 w-0.5 h-[150%] bg-foreground/40 rounded-full"
+                                style={{ left: `${averagePercent}%` }}
+                            />
+                        )}
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent
+                    side="bottom"
+                    className="max-w-xs p-3 space-y-2"
+                >
+                    {/* Current progress */}
+                    <div className="space-y-1">
+                        <p className="font-semibold text-base text-zinc-100">
+                            {Math.round(fillPercent)}% of Elite Ceiling
+                        </p>
+                        <p className="text-sm text-zinc-300">
+                            <span className="font-medium">
+                                {value.toLocaleString()}
+                            </span>
+                            <span className="text-zinc-400">
+                                {" "}
+                                / {maxValue.toLocaleString()} {unit}
+                            </span>
+                        </p>
+                    </div>
+
+                    {/* Average explanation if present */}
+                    {average !== undefined && (
+                        <div className="pt-1 border-t border-zinc-700">
+                            <p className="text-base text-zinc-400">
+                                <span className="inline-block w-1.5 h-3 bg-foreground/40 rounded-full mr-1.5 align-middle" />
+                                League avg: {average.toLocaleString()} {unit}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Explanation */}
+                    <p className="text-sm text-zinc-500 italic pt-1">
+                        Bar shows progress toward an elite season performance
+                    </p>
+                </TooltipContent>
+            </Tooltip>
         </div>
     );
 }
@@ -276,7 +314,7 @@ export function StatValue({
         const labelElement = (
             <div
                 className={cn(
-                    "text-sm text-muted-foreground font-medium mt-0.5 bg-popover",
+                    "text-sm text-muted-foreground font-medium mt-0.5 ",
                     tooltipData &&
                         "cursor-help underline decoration-dotted decoration-muted-foreground/50 underline-offset-2"
                 )}
