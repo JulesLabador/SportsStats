@@ -6,14 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchInput } from "@/components/search/search-input";
 import { useSearchStore } from "@/stores/search-store";
-import { searchPlayers, getFeaturedPlayers } from "@/lib/mock-data";
+import { searchPlayers, getFeaturedPlayers } from "@/lib/data";
 import type { Player } from "@/lib/types";
 
 /**
  * Home page component
  *
  * Features:
- * - Player search with type-ahead
+ * - Player search with type-ahead (connected to Supabase)
  * - Featured players grid
  * - Recent searches (from Zustand store)
  */
@@ -21,16 +21,42 @@ export default function HomePage() {
     const router = useRouter();
     const query = useSearchStore((state) => state.query);
     const [searchResults, setSearchResults] = React.useState<Player[]>([]);
-    const featuredPlayers = React.useMemo(() => getFeaturedPlayers(), []);
+    const [featuredPlayers, setFeaturedPlayers] = React.useState<Player[]>([]);
+    const [isLoadingFeatured, setIsLoadingFeatured] = React.useState(true);
 
-    // Update search results when query changes
+    // Fetch featured players on mount
     React.useEffect(() => {
-        if (query.trim()) {
-            const results = searchPlayers(query);
-            setSearchResults(results);
-        } else {
-            setSearchResults([]);
+        async function loadFeaturedPlayers() {
+            try {
+                const players = await getFeaturedPlayers();
+                setFeaturedPlayers(players);
+            } catch (error) {
+                console.error("Error loading featured players:", error);
+            } finally {
+                setIsLoadingFeatured(false);
+            }
         }
+        loadFeaturedPlayers();
+    }, []);
+
+    // Update search results when query changes (debounced)
+    React.useEffect(() => {
+        // Debounce search to avoid too many requests
+        const timer = setTimeout(async () => {
+            if (query.trim()) {
+                try {
+                    const results = await searchPlayers(query);
+                    setSearchResults(results);
+                } catch (error) {
+                    console.error("Error searching players:", error);
+                    setSearchResults([]);
+                }
+            } else {
+                setSearchResults([]);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
     }, [query]);
 
     /**
@@ -76,15 +102,46 @@ export default function HomePage() {
                     </h2>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {featuredPlayers.map((player) => (
-                        <PlayerCard
-                            key={player.id}
-                            player={player}
-                            onClick={() => handleSelectPlayer(player)}
-                        />
-                    ))}
-                </div>
+                {isLoadingFeatured ? (
+                    // Loading skeleton
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {[...Array(6)].map((_, i) => (
+                            <Card key={i} className="animate-pulse">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 rounded-full bg-muted" />
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-4 w-32 bg-muted rounded" />
+                                            <div className="flex gap-2">
+                                                <div className="h-5 w-12 bg-muted rounded" />
+                                                <div className="h-5 w-10 bg-muted rounded" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                ) : featuredPlayers.length === 0 ? (
+                    // Empty state
+                    <div className="text-center py-12 text-muted-foreground">
+                        <p>
+                            No players found. Run the ETL pipeline to populate
+                            the database.
+                        </p>
+                    </div>
+                ) : (
+                    // Player grid
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {featuredPlayers.map((player) => (
+                            <PlayerCard
+                                key={player.id}
+                                player={player}
+                                onClick={() => handleSelectPlayer(player)}
+                            />
+                        ))}
+                    </div>
+                )}
             </section>
 
             {/* Footer */}

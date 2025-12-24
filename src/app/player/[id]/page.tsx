@@ -12,7 +12,7 @@ import {
     GameLogTableSkeleton,
 } from "@/components/player/game-log-table";
 import { usePlayerStore, useSelectedSeason } from "@/stores/player-store";
-import { getPlayerWithStats, getAvailableSeasons } from "@/lib/mock-data";
+import { getPlayerWithStats, getAvailableSeasons } from "@/lib/data";
 import type { PlayerWithStats } from "@/lib/types";
 
 /**
@@ -22,6 +22,8 @@ import type { PlayerWithStats } from "@/lib/types";
  * - Player header with name, team, position, season selector
  * - Season stat summary with visual bars
  * - Game log table with heat-map coloring
+ *
+ * Data is fetched from Supabase database.
  */
 export default function PlayerPage() {
     const params = useParams();
@@ -36,35 +38,72 @@ export default function PlayerPage() {
         null
     );
     const [isLoading, setIsLoading] = React.useState(true);
+    const [availableSeasons, setAvailableSeasons] = React.useState<number[]>([2024]);
 
-    // Available seasons
-    const availableSeasons = React.useMemo(() => getAvailableSeasons(), []);
+    /**
+     * Fetch available seasons for this player on mount
+     * Also sets the selected season to the most recent available season
+     */
+    React.useEffect(() => {
+        async function loadAvailableSeasons() {
+            try {
+                const seasons = await getAvailableSeasons(playerId);
+                setAvailableSeasons(seasons);
+
+                // #region agent log
+                fetch('http://127.0.0.1:7245/ingest/d123b1e9-793c-4e2a-8c08-6c4c1e97ec66',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'player/[id]/page.tsx:loadAvailableSeasons',message:'Available seasons loaded',data:{playerId,seasons,mostRecentSeason:seasons[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'B-fix'})}).catch(()=>{});
+                // #endregion
+
+                // Set selected season to the most recent available season
+                // This ensures we don't query for a season that doesn't exist
+                if (seasons.length > 0 && !seasons.includes(selectedSeason)) {
+                    setSelectedSeason(seasons[0]);
+                }
+            } catch (error) {
+                console.error("Error fetching available seasons:", error);
+            }
+        }
+        loadAvailableSeasons();
+    }, [playerId, selectedSeason, setSelectedSeason]);
 
     /**
      * Fetch player data when playerId or season changes
-     * Uses cache-first strategy via Zustand store
      */
     React.useEffect(() => {
-        setIsLoading(true);
+        async function loadPlayerData() {
+            setIsLoading(true);
 
-        // Simulate network delay for realistic UX
-        const timer = setTimeout(() => {
-            const data = getPlayerWithStats(playerId, selectedSeason);
-            if (data) {
-                setPlayerData(data);
-                // Cache the player in store
-                setPlayer({
-                    id: data.id,
-                    name: data.name,
-                    team: data.team,
-                    position: data.position,
-                    jerseyNumber: data.jerseyNumber,
-                });
+            // #region agent log
+            fetch('http://127.0.0.1:7245/ingest/d123b1e9-793c-4e2a-8c08-6c4c1e97ec66',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'player/[id]/page.tsx:loadPlayerData',message:'Loading player data',data:{playerId,selectedSeason,playerIdFromParams:params.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+
+            try {
+                const data = await getPlayerWithStats(playerId, selectedSeason);
+                // #region agent log
+                fetch('http://127.0.0.1:7245/ingest/d123b1e9-793c-4e2a-8c08-6c4c1e97ec66',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'player/[id]/page.tsx:afterFetch',message:'Player data fetch result',data:{playerId,hasData:!!data,dataId:data?.id,dataName:data?.name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                if (data) {
+                    setPlayerData(data);
+                    // Cache the player in store
+                    setPlayer({
+                        id: data.id,
+                        name: data.name,
+                        team: data.team,
+                        position: data.position,
+                        jerseyNumber: data.jerseyNumber,
+                    });
+                } else {
+                    setPlayerData(null);
+                }
+            } catch (error) {
+                console.error("Error fetching player data:", error);
+                setPlayerData(null);
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
-        }, 300);
+        }
 
-        return () => clearTimeout(timer);
+        loadPlayerData();
     }, [playerId, selectedSeason, setPlayer]);
 
     /**
@@ -162,7 +201,7 @@ export default function PlayerPage() {
                             Player Not Found
                         </h1>
                         <p className="text-muted-foreground mb-6">
-                            We couldn&apos;t find a player with that ID.
+                            We couldn&apos;t find a player with that ID, or no data exists for the {selectedSeason} season.
                         </p>
                         <Link href="/">
                             <Button>Search Players</Button>
@@ -217,10 +256,16 @@ export default function PlayerPage() {
                     <h2 className="text-lg font-semibold mb-4">Game Log</h2>
                     <Card>
                         <CardContent className="pt-6 pb-4">
-                            <GameLogTable
-                                weeklyStats={playerData.weeklyStats}
-                                position={playerData.position}
-                            />
+                            {playerData.weeklyStats.length > 0 ? (
+                                <GameLogTable
+                                    weeklyStats={playerData.weeklyStats}
+                                    position={playerData.position}
+                                />
+                            ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    No game data available for the {selectedSeason} season.
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </section>
