@@ -16,6 +16,7 @@ A mobile-first, minimalist NFL player statistics web app designed for sports bet
 - **Styling**: Tailwind CSS v4
 - **Components**: shadcn/ui (New York style)
 - **State Management**: Zustand
+- **Database**: Supabase (PostgreSQL)
 - **Language**: TypeScript
 
 ## Getting Started
@@ -24,6 +25,20 @@ A mobile-first, minimalist NFL player statistics web app designed for sports bet
 
 - Node.js 18+
 - npm or yarn
+- Supabase account with project set up
+
+### Environment Setup
+
+Create a `.env.local` file in the project root with your Supabase credentials:
+
+```bash
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your-anon-key
+SUPABASE_SECRET_KEY=your-secret-key
+```
+
+You can find these values in your Supabase project dashboard under Settings > API.
 
 ### Installation
 
@@ -41,6 +56,23 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Database Setup
+
+Run the migrations in `supabase/migrations/` in order to set up the database schema:
+
+1. `001_initial_schema.sql` - Core tables
+2. `002_caching_and_identity.sql` - Caching and identity mappings
+3. `003_row_level_security.sql` - Row level security policies
+
+### Populating Data
+
+Run the ETL pipeline to fetch and load player data:
+
+```bash
+# Run the ETL pipeline
+npx tsx scripts/run-etl.ts --adapter nfl-composite --season 2024
+```
+
 ## Project Structure
 
 ```
@@ -55,8 +87,14 @@ src/
 │   └── search/             # Search components
 ├── lib/
 │   ├── types.ts            # TypeScript interfaces
-│   ├── mock-data.ts        # Mock NFL player data
+│   ├── database.types.ts   # Supabase database types
+│   ├── supabase.ts         # Supabase client configuration
+│   ├── data.ts             # Data access layer
 │   └── utils.ts            # Utility functions
+├── etl/                    # ETL pipeline
+│   ├── adapters/           # Data source adapters
+│   ├── services/           # ETL services
+│   └── runner.ts           # ETL runner
 └── stores/
     ├── player-store.ts     # Player data cache
     └── search-store.ts     # Search state & recent searches
@@ -84,7 +122,7 @@ npm run lint     # Run ESLint
 
 ## Future Enhancements
 
-- [ ] Supabase database integration
+- [x] Supabase database integration
 - [ ] SportsDataIO API integration
 - [ ] Player vs player comparison
 - [ ] Favorites/saved players
