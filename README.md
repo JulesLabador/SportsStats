@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NFL Stats
+
+A mobile-first, minimalist NFL player statistics web app designed for sports bettors who rely on data—not gut feelings—to make informed bets.
+
+## Features
+
+- **Player Search**: Fast, type-ahead search for NFL players
+- **Visual Statistics**: Clear, color-coded stat visualization
+- **Week-by-Week Analysis**: Detailed game-by-game performance breakdown
+- **Season Trends**: Track player performance across seasons
+- **Mobile-First**: Optimized for quick lookups on mobile devices
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Styling**: Tailwind CSS v4
+- **Components**: shadcn/ui (New York style)
+- **State Management**: Zustand
+- **Language**: TypeScript
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd SportsStats
+
+# Install dependencies
+npm install
+
+# Start the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/                    # Next.js App Router pages
+│   ├── layout.tsx          # Root layout with dark theme
+│   ├── page.tsx            # Home page with search
+│   └── player/[id]/        # Player profile page
+├── components/
+│   ├── ui/                 # shadcn/ui + custom components
+│   ├── player/             # Player-specific components
+│   └── search/             # Search components
+├── lib/
+│   ├── types.ts            # TypeScript interfaces
+│   ├── mock-data.ts        # Mock NFL player data
+│   └── utils.ts            # Utility functions
+└── stores/
+    ├── player-store.ts     # Player data cache
+    └── search-store.ts     # Search state & recent searches
+```
 
-## Learn More
+## Design System
 
-To learn more about Next.js, take a look at the following resources:
+The app uses a dark-mode-first design inspired by the Push app and AniList.co:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Background**: Near-black (#0B0B0C)
+- **Cards**: Slightly lighter (#151518)
+- **Accent Colors**: Semantic meaning only
+  - Green: Positive performance
+  - Blue: Baseline/neutral
+  - Yellow: Growth/trends
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+```bash
+npm run dev      # Start development server
+npm run build    # Build for production
+npm run start    # Start production server
+npm run lint     # Run ESLint
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Future Enhancements
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ ] Supabase database integration
+- [ ] SportsDataIO API integration
+- [ ] Player vs player comparison
+- [ ] Favorites/saved players
+- [ ] Prop-specific views
+
+## License
+
+Private - All rights reserved
