@@ -275,6 +275,98 @@ export type Database = {
                     }
                 ];
             };
+            api_response_cache: {
+                Row: {
+                    id: string;
+                    source: "espn" | "pfr";
+                    endpoint: string;
+                    params_hash: string;
+                    response_data: Json;
+                    season: number | null;
+                    week: number | null;
+                    game_id: string | null;
+                    fetched_at: string;
+                    expires_at: string;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    source: "espn" | "pfr";
+                    endpoint: string;
+                    params_hash: string;
+                    response_data: Json;
+                    season?: number | null;
+                    week?: number | null;
+                    game_id?: string | null;
+                    fetched_at?: string;
+                    expires_at: string;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    source?: "espn" | "pfr";
+                    endpoint?: string;
+                    params_hash?: string;
+                    response_data?: Json;
+                    season?: number | null;
+                    week?: number | null;
+                    game_id?: string | null;
+                    fetched_at?: string;
+                    expires_at?: string;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
+            player_identity_mappings: {
+                Row: {
+                    id: string;
+                    player_id: string;
+                    espn_player_id: string | null;
+                    pfr_player_slug: string | null;
+                    match_confidence: "exact" | "high" | "medium" | "low";
+                    match_method: string | null;
+                    matched_at: string;
+                    manual_override: boolean;
+                    extra_ids: Json;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    player_id: string;
+                    espn_player_id?: string | null;
+                    pfr_player_slug?: string | null;
+                    match_confidence?: "exact" | "high" | "medium" | "low";
+                    match_method?: string | null;
+                    matched_at?: string;
+                    manual_override?: boolean;
+                    extra_ids?: Json;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    player_id?: string;
+                    espn_player_id?: string | null;
+                    pfr_player_slug?: string | null;
+                    match_confidence?: "exact" | "high" | "medium" | "low";
+                    match_method?: string | null;
+                    matched_at?: string;
+                    manual_override?: boolean;
+                    extra_ids?: Json;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Relationships: [
+                    {
+                        foreignKeyName: "player_identity_mappings_player_id_fkey";
+                        columns: ["player_id"];
+                        isOneToOne: true;
+                        referencedRelation: "players";
+                        referencedColumns: ["id"];
+                    }
+                ];
+            };
         };
         Views: {
             nfl_player_season_details: {
@@ -325,8 +417,37 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            api_cache_stats: {
+                Row: {
+                    source: string | null;
+                    total_entries: number | null;
+                    valid_entries: number | null;
+                    expired_entries: number | null;
+                    oldest_fetch: string | null;
+                    newest_fetch: string | null;
+                };
+                Relationships: [];
+            };
+            player_identity_coverage: {
+                Row: {
+                    total_players: number | null;
+                    mapped_players: number | null;
+                    has_espn_id: number | null;
+                    has_pfr_slug: number | null;
+                    exact_matches: number | null;
+                    high_matches: number | null;
+                    medium_matches: number | null;
+                    low_matches: number | null;
+                };
+                Relationships: [];
+            };
         };
-        Functions: Record<string, never>;
+        Functions: {
+            cleanup_expired_cache: {
+                Args: Record<string, never>;
+                Returns: number;
+            };
+        };
         Enums: Record<string, never>;
         CompositeTypes: Record<string, never>;
     };
@@ -375,11 +496,31 @@ export type EtlRun = Database["public"]["Tables"]["etl_runs"]["Row"];
 export type EtlRunInsert = Database["public"]["Tables"]["etl_runs"]["Insert"];
 export type EtlRunUpdate = Database["public"]["Tables"]["etl_runs"]["Update"];
 
+// API Response Cache
+export type ApiResponseCache =
+    Database["public"]["Tables"]["api_response_cache"]["Row"];
+export type ApiResponseCacheInsert =
+    Database["public"]["Tables"]["api_response_cache"]["Insert"];
+export type ApiResponseCacheUpdate =
+    Database["public"]["Tables"]["api_response_cache"]["Update"];
+
+// Player Identity Mappings
+export type PlayerIdentityMapping =
+    Database["public"]["Tables"]["player_identity_mappings"]["Row"];
+export type PlayerIdentityMappingInsert =
+    Database["public"]["Tables"]["player_identity_mappings"]["Insert"];
+export type PlayerIdentityMappingUpdate =
+    Database["public"]["Tables"]["player_identity_mappings"]["Update"];
+
 // Views
 export type NFLPlayerSeasonDetails =
     Database["public"]["Views"]["nfl_player_season_details"]["Row"];
 export type NFLWeeklyStatsWithPlayer =
     Database["public"]["Views"]["nfl_weekly_stats_with_player"]["Row"];
+export type ApiCacheStats =
+    Database["public"]["Views"]["api_cache_stats"]["Row"];
+export type PlayerIdentityCoverage =
+    Database["public"]["Views"]["player_identity_coverage"]["Row"];
 
 // ============================================================================
 // Profile Metadata Types (for JSONB column)
