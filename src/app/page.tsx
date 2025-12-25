@@ -1,72 +1,46 @@
-"use client";
-
-import * as React from "react";
-import { useRouter } from "next/navigation";
+import type { Metadata } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SearchInput } from "@/components/search/search-input";
-import { useSearchStore } from "@/stores/search-store";
-import { searchPlayers, getFeaturedPlayers } from "@/lib/data";
+import { SearchWrapper } from "@/components/search/search-wrapper";
+import { getFeaturedPlayers } from "@/lib/data";
 import { getTeamColor, getPositionColor } from "@/lib/team-colors";
 import { cn } from "@/lib/utils";
 import type { Player } from "@/lib/types";
 
 /**
- * Home page component
+ * SEO metadata for the home page
+ */
+export const metadata: Metadata = {
+    title: "NFL Stats | Player Statistics for Smarter Betting",
+    description:
+        "Search NFL player statistics, analyze performance trends, and make data-driven betting decisions. Fast, visual stats for QBs, RBs, WRs, and TEs.",
+    keywords: [
+        "NFL",
+        "stats",
+        "betting",
+        "player statistics",
+        "football",
+        "fantasy football",
+    ],
+    openGraph: {
+        title: "NFL Stats | Player Statistics for Smarter Betting",
+        description:
+            "Search NFL player statistics, analyze performance trends, and make data-driven betting decisions.",
+        type: "website",
+    },
+};
+
+/**
+ * Home page component (Server Component)
  *
  * Features:
- * - Player search with type-ahead (connected to Supabase)
- * - Featured players grid
- * - Recent searches (from Zustand store)
+ * - Server-side data fetching for featured players (SEO-friendly)
+ * - Client-side search via SearchWrapper component
+ * - Static hero section and footer
  */
-export default function HomePage() {
-    const router = useRouter();
-    const query = useSearchStore((state) => state.query);
-    const [searchResults, setSearchResults] = React.useState<Player[]>([]);
-    const [featuredPlayers, setFeaturedPlayers] = React.useState<Player[]>([]);
-    const [isLoadingFeatured, setIsLoadingFeatured] = React.useState(true);
-
-    // Fetch featured players on mount
-    React.useEffect(() => {
-        async function loadFeaturedPlayers() {
-            try {
-                const players = await getFeaturedPlayers();
-                setFeaturedPlayers(players);
-            } catch (error) {
-                console.error("Error loading featured players:", error);
-            } finally {
-                setIsLoadingFeatured(false);
-            }
-        }
-        loadFeaturedPlayers();
-    }, []);
-
-    // Update search results when query changes (debounced)
-    React.useEffect(() => {
-        // Debounce search to avoid too many requests
-        const timer = setTimeout(async () => {
-            if (query.trim()) {
-                try {
-                    const results = await searchPlayers(query);
-                    setSearchResults(results);
-                } catch (error) {
-                    console.error("Error searching players:", error);
-                    setSearchResults([]);
-                }
-            } else {
-                setSearchResults([]);
-            }
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [query]);
-
-    /**
-     * Handle player selection - navigate to player page
-     */
-    const handleSelectPlayer = (player: Player) => {
-        router.push(`/player/${player.id}`);
-    };
+export default async function HomePage() {
+    // Fetch featured players server-side for SEO
+    const featuredPlayers = await getFeaturedPlayers();
 
     return (
         <main className="min-h-screen">
@@ -87,12 +61,8 @@ export default function HomePage() {
                         </p>
                     </div>
 
-                    {/* Search input */}
-                    <SearchInput
-                        onSelectPlayer={handleSelectPlayer}
-                        searchResults={searchResults}
-                        className="max-w-xl mx-auto"
-                    />
+                    {/* Search input (client component) */}
+                    <SearchWrapper className="max-w-xl mx-auto" />
                 </div>
             </section>
 
@@ -104,27 +74,7 @@ export default function HomePage() {
                     </h2>
                 </div>
 
-                {isLoadingFeatured ? (
-                    // Loading skeleton
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {[...Array(6)].map((_, i) => (
-                            <Card key={i} className="animate-pulse">
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 rounded-full bg-muted" />
-                                        <div className="flex-1 space-y-2">
-                                            <div className="h-4 w-32 bg-muted rounded" />
-                                            <div className="flex gap-2">
-                                                <div className="h-5 w-12 bg-muted rounded" />
-                                                <div className="h-5 w-10 bg-muted rounded" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                ) : featuredPlayers.length === 0 ? (
+                {featuredPlayers.length === 0 ? (
                     // Empty state
                     <div className="text-center py-12 text-muted-foreground">
                         <p>
@@ -136,11 +86,7 @@ export default function HomePage() {
                     // Player grid
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {featuredPlayers.map((player) => (
-                            <PlayerCard
-                                key={player.id}
-                                player={player}
-                                onClick={() => handleSelectPlayer(player)}
-                            />
+                            <PlayerCard key={player.id} player={player} />
                         ))}
                     </div>
                 )}
@@ -161,79 +107,80 @@ export default function HomePage() {
 
 /**
  * Player card component for featured players grid
+ *
+ * This is a pure component (no hooks) that renders a clickable card
+ * linking to the player's detail page.
  */
 interface PlayerCardProps {
     player: Player;
-    onClick: () => void;
 }
 
-function PlayerCard({ player, onClick }: PlayerCardProps) {
+function PlayerCard({ player }: PlayerCardProps) {
     // Get team and position colors for badges
     const teamColor = getTeamColor(player.team);
     const positionColor = getPositionColor(player.position);
 
     return (
-        <Card
-            className="group cursor-pointer transition-colors hover:bg-card/80"
-            onClick={onClick}
-        >
-            <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                    {/* Avatar placeholder */}
-                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-muted/80 transition-colors">
-                        <span className="text-xl font-bold text-muted-foreground">
-                            {player.name.charAt(0)}
-                        </span>
-                    </div>
-
-                    {/* Player info */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                            <span className="text-sm text-muted-foreground font-medium">
-                                #{player.jerseyNumber}
+        <a href={`/player/${player.id}`}>
+            <Card className="group cursor-pointer transition-colors hover:bg-card/80">
+                <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                        {/* Avatar placeholder */}
+                        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-muted/80 transition-colors">
+                            <span className="text-xl font-bold text-muted-foreground">
+                                {player.name.charAt(0)}
                             </span>
-                            <h3 className="font-semibold truncate">
-                                {player.name}
-                            </h3>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                            <Badge
-                                variant="secondary"
-                                className={cn(
-                                    "text-xs font-semibold",
-                                    teamColor
-                                )}
-                            >
-                                {player.team}
-                            </Badge>
-                            <Badge
-                                variant="secondary"
-                                className={cn(
-                                    "text-xs font-semibold",
-                                    positionColor
-                                )}
-                            >
-                                {player.position}
-                            </Badge>
-                        </div>
-                    </div>
 
-                    {/* Arrow indicator */}
-                    <svg
-                        className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                        />
-                    </svg>
-                </div>
-            </CardContent>
-        </Card>
+                        {/* Player info */}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-sm text-muted-foreground font-medium">
+                                    #{player.jerseyNumber}
+                                </span>
+                                <h3 className="font-semibold truncate">
+                                    {player.name}
+                                </h3>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                                <Badge
+                                    variant="secondary"
+                                    className={cn(
+                                        "text-xs font-semibold",
+                                        teamColor
+                                    )}
+                                >
+                                    {player.team}
+                                </Badge>
+                                <Badge
+                                    variant="secondary"
+                                    className={cn(
+                                        "text-xs font-semibold",
+                                        positionColor
+                                    )}
+                                >
+                                    {player.position}
+                                </Badge>
+                            </div>
+                        </div>
+
+                        {/* Arrow indicator */}
+                        <svg
+                            className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                            />
+                        </svg>
+                    </div>
+                </CardContent>
+            </Card>
+        </a>
     );
 }
