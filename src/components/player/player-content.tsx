@@ -4,9 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { SearchWrapper } from "@/components/search/search-wrapper";
 import { PlayerHeader } from "./player-header";
 import { StatSummary } from "./stat-summary";
 import { GameLogTable, GameLogTableSkeleton } from "./game-log-table";
+import { RelatedPlayers } from "./related-players";
 import { usePlayerStore } from "@/stores/player-store";
 import { getPlayerWithStats } from "@/lib/data";
 import type { PlayerWithStats } from "@/lib/types";
@@ -96,9 +98,16 @@ export function PlayerContent({
 
     return (
         <div className="max-w-4xl mx-auto px-4 py-6">
+            {/* Search bar for quick player navigation */}
+            <SearchWrapper className="mb-6" />
+
             {/* Back button */}
             <Link href="/">
-                <Button variant="ghost" size="sm" className="mb-6 -ml-2">
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mb-6 hover:cursor-pointer"
+                >
                     <svg
                         className="w-4 h-4 mr-2"
                         fill="none"
@@ -157,6 +166,12 @@ export function PlayerContent({
                     </CardContent>
                 </Card>
             </section>
+
+            {/* Related players (teammates) */}
+            <RelatedPlayers
+                team={playerData.team}
+                currentPlayerId={playerData.id}
+            />
         </div>
     );
 }
@@ -201,4 +216,3 @@ export function PlayerNotFound() {
         </div>
     );
 }
-
