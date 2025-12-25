@@ -52,33 +52,25 @@ This document captures all key decisions made during development and the reasoni
 
 ## 3. State Management
 
-### Zustand
-**Decision**: Use Zustand for client-side state management.
+### Zustand (Simplified for SSR)
+**Decision**: Use Zustand for minimal client-side state, with server handling data fetching.
 
 **Reasoning**:
-- Lightweight (~1KB) with minimal boilerplate
-- No providers needed - works seamlessly with Next.js App Router
-- Built-in persistence middleware for caching
-- Simple API that scales well
-- Selective subscriptions prevent unnecessary re-renders
+- Server Components fetch data at request time (SEO-friendly)
+- Zustand only manages UI state that must be client-side:
+  - `search-store`: Search query, recent searches (localStorage persistence), focus state
+  - `player-store`: Selected season for interactive season switching
+- Removed client-side caching (server handles fresh data fetching)
+- Lightweight footprint with minimal boilerplate
 
 ### Store Architecture
-**Decision**: Separate stores for player data and search state.
+**Decision**: Separate stores for search and player UI state.
 
 **Reasoning**:
 - Separation of concerns
-- Independent persistence strategies (search persists to localStorage)
-- Easier testing and maintenance
-- Clear ownership of state
-
-### Cache-First Strategy
-**Decision**: Check Zustand store before fetching data.
-
-**Reasoning**:
-- Reduces API calls (important for paid data APIs)
-- Instant data display for previously viewed players
-- Better perceived performance
-- Graceful offline experience for cached data
+- Search store persists recent searches to localStorage
+- Player store manages selected season for client-side season switching
+- Server handles all data fetching (no client-side caching needed)
 
 ---
 
@@ -146,7 +138,24 @@ This document captures all key decisions made during development and the reasoni
 
 ---
 
-## 6. Performance Optimizations
+## 6. Performance Optimizations & SEO
+
+### Server-Side Rendering for SEO
+**Decision**: Convert main pages to async Server Components for SEO benefits.
+
+**Architecture**:
+- `page.tsx` (home) - Server Component with static metadata
+- `player/[id]/page.tsx` - Server Component with `generateMetadata()` for dynamic SEO
+- Interactive features extracted to Client Components:
+  - `SearchWrapper` - Client-side search with debouncing
+  - `PlayerContent` - Client-side season switching
+
+**Reasoning**:
+- SEO-friendly pages with server-rendered content
+- Dynamic metadata (player name, team, position) in page titles
+- Faster initial page load (data fetched server-side)
+- Smaller JavaScript bundle (less client-side code)
+- Interactive features preserved via Client Component extraction
 
 ### Server Components Default
 **Decision**: Use Server Components where possible, Client Components only when needed.
@@ -154,7 +163,7 @@ This document captures all key decisions made during development and the reasoni
 **Reasoning**:
 - Smaller JavaScript bundle
 - Faster initial page load
-- Better SEO (though less critical for this app)
+- Full SEO support with server-rendered HTML
 - Future-proof architecture
 
 ### Selective Zustand Subscriptions
@@ -164,15 +173,6 @@ This document captures all key decisions made during development and the reasoni
 - Components only re-render when their specific slice changes
 - Better performance with large stores
 - Cleaner component code
-
-### Simulated Loading States
-**Decision**: Include 300ms delay in mock data fetching.
-
-**Reasoning**:
-- Realistic UX testing
-- Ensures loading states work correctly
-- Prepares for real API latency
-- Better user feedback patterns
 
 ---
 
@@ -590,5 +590,5 @@ src/etl/
 
 ---
 
-*Last updated: December 2024*
+*Last updated: December 25, 2024*
 
