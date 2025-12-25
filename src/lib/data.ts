@@ -210,6 +210,45 @@ export async function getPlayerById(
     return transformToPlayer(data[0]);
 }
 
+/**
+ * Get players on the same team (teammates)
+ * Returns active players from the current season on the specified team,
+ * excluding the current player.
+ * @param team - The team abbreviation (e.g., "KC", "SF")
+ * @param excludePlayerId - The player ID to exclude from results
+ * @param limit - Maximum number of players to return (default 10)
+ * @returns Array of teammate players
+ */
+export async function getPlayersByTeam(
+    team: string,
+    excludePlayerId: string,
+    limit: number = 10
+): Promise<Player[]> {
+    const supabase = createServerClient();
+    const currentSeason = 2024;
+
+    // Query for active players on the same team, excluding the current player
+    // Filter out placeholder records with invalid names
+    const { data, error } = await supabase
+        .from("nfl_player_season_details")
+        .select("*")
+        .eq("team", team)
+        .eq("is_active", true)
+        .eq("season", currentSeason)
+        .neq("player_id", excludePlayerId)
+        .not("name", "ilike", "% Team")
+        .not("name", "eq", "")
+        .order("name")
+        .limit(limit);
+
+    if (error) {
+        console.error("Error fetching players by team:", error);
+        return [];
+    }
+
+    return (data || []).map(transformToPlayer);
+}
+
 // ============================================================================
 // Transform Functions
 // ============================================================================
