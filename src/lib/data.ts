@@ -179,6 +179,7 @@ export async function getPlayerWithStats(
 
 /**
  * Get a single player by ID (basic info only)
+ * Returns the most recent season's data for the player.
  * @param playerId - The player's ID
  * @returns Player or undefined if not found
  */
@@ -187,19 +188,26 @@ export async function getPlayerById(
 ): Promise<Player | undefined> {
     const supabase = createServerClient();
 
+    // Query without .single() since a player can have multiple seasons
+    // Order by season desc to get the most recent data first
     const { data, error } = await supabase
         .from("nfl_player_season_details")
         .select("*")
         .eq("player_id", playerId)
-        .eq("is_active", true)
-        .single();
+        .order("season", { ascending: false })
+        .limit(1);
 
-    if (error || !data) {
+    if (error) {
         console.error("Error fetching player by ID:", error);
         return undefined;
     }
 
-    return transformToPlayer(data);
+    // Return undefined if no data found
+    if (!data || data.length === 0) {
+        return undefined;
+    }
+
+    return transformToPlayer(data[0]);
 }
 
 // ============================================================================
