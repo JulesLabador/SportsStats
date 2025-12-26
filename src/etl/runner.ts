@@ -55,6 +55,7 @@ import type { Database } from "@/lib/database.types";
 const DEFAULT_OPTIONS: Partial<ETLRunOptions> = {
     fetchPlayers: true,
     fetchWeeklyStats: true,
+    fetchGames: true,
     dryRun: false,
 };
 
@@ -477,6 +478,39 @@ async function processNFLData(
                 { loaded: result.recordsUpserted },
                 "Loaded NFL weekly stats"
             );
+        }
+    }
+
+    // =========================================================================
+    // STEP 5: Fetch and load NFL games
+    // =========================================================================
+    if (config.fetchGames) {
+        log.info("Fetching NFL games...");
+        const rawGames = await adapter.fetchGames(fetchOptions);
+        log.info({ count: rawGames.length }, "Fetched NFL games");
+
+        // Transform raw games to database format
+        const dbGames = rawGames.map((game) => ({
+            espn_game_id: game.espnGameId,
+            season: game.season,
+            week: game.week,
+            home_team: game.homeTeam,
+            away_team: game.awayTeam,
+            home_score: game.homeScore,
+            away_score: game.awayScore,
+            game_date: game.gameDate,
+            venue_name: game.venue?.name ?? null,
+            venue_city: game.venue?.city ?? null,
+            venue_state: game.venue?.state ?? null,
+            status: game.status,
+        }));
+
+        // Load (if not dry run)
+        if (!config.dryRun && loader) {
+            const result = await loader.loadNFLGames(dbGames);
+            addRecords(result.recordsUpserted);
+            errors.push(...result.errors);
+            log.info({ loaded: result.recordsUpserted }, "Loaded NFL games");
         }
     }
 }

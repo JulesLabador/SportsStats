@@ -137,6 +137,40 @@ export interface RawNFLWeeklyStat {
     targets?: number;
 }
 
+/** NFL game status */
+export type NFLGameStatus = "scheduled" | "in_progress" | "final";
+
+/**
+ * Raw NFL game data from external data source
+ * Used for upcoming matches and matchup pages
+ */
+export interface RawNFLGame {
+    /** ESPN's game identifier */
+    espnGameId: string;
+    /** Season year */
+    season: number;
+    /** Week number (1-18 regular, 19-22 playoffs) */
+    week: number;
+    /** Home team abbreviation */
+    homeTeam: NFLTeam;
+    /** Away team abbreviation */
+    awayTeam: NFLTeam;
+    /** Home team score (null for upcoming games) */
+    homeScore: number | null;
+    /** Away team score (null for upcoming games) */
+    awayScore: number | null;
+    /** Game date and time (ISO string) */
+    gameDate: string;
+    /** Venue information */
+    venue?: {
+        name: string;
+        city: string;
+        state: string;
+    };
+    /** Game status */
+    status: NFLGameStatus;
+}
+
 // ============================================================================
 // DATABASE TYPES - What loaders consume (ready for Supabase upsert)
 // ============================================================================
@@ -195,6 +229,24 @@ export interface DbNFLWeeklyStat {
     targets: number;
 }
 
+/**
+ * NFL game record ready for database insertion
+ */
+export interface DbNFLGame {
+    espn_game_id: string;
+    season: number;
+    week: number;
+    home_team: string;
+    away_team: string;
+    home_score: number | null;
+    away_score: number | null;
+    game_date: string;
+    venue_name: string | null;
+    venue_city: string | null;
+    venue_state: string | null;
+    status: NFLGameStatus;
+}
+
 // ============================================================================
 // ETL RUN TYPES
 // ============================================================================
@@ -229,6 +281,8 @@ export interface ETLRunOptions {
     fetchPlayers?: boolean;
     /** Whether to fetch weekly stats */
     fetchWeeklyStats?: boolean;
+    /** Whether to fetch game schedule data */
+    fetchGames?: boolean;
     /** Dry run - don't actually write to database */
     dryRun?: boolean;
 }

@@ -20,6 +20,7 @@ import type {
     RawPlayerProfile,
     RawNFLPlayerSeason,
     RawNFLWeeklyStat,
+    RawNFLGame,
     NFLTeam,
     NFLPosition,
 } from "../types";
@@ -192,6 +193,79 @@ export class NFLMockAdapter extends NFLBaseAdapter {
         }
 
         return stats;
+    }
+
+    /**
+     * Fetch mock NFL games (upcoming, in-progress, completed)
+     * Generates realistic game data for the season
+     */
+    async fetchGames(options: AdapterFetchOptions): Promise<RawNFLGame[]> {
+        await this.simulateLatency();
+
+        const games: RawNFLGame[] = [];
+        const weeksToGenerate = options.week
+            ? [options.week]
+            : Array.from({ length: 18 }, (_, i) => i + 1);
+
+        const currentWeek = this.getCurrentWeek();
+
+        for (const week of weeksToGenerate) {
+            // Generate ~16 games per week (one per team, playing another)
+            const teamsThisWeek = [...NFL_TEAMS];
+
+            while (teamsThisWeek.length >= 2) {
+                const homeTeam = teamsThisWeek.pop()!;
+                const awayIndex = Math.floor(
+                    Math.random() * teamsThisWeek.length
+                );
+                const awayTeam = teamsThisWeek.splice(awayIndex, 1)[0];
+
+                // Determine game status based on week
+                let status: "scheduled" | "in_progress" | "final";
+                let homeScore: number | null = null;
+                let awayScore: number | null = null;
+
+                if (week < currentWeek) {
+                    status = "final";
+                    homeScore = Math.round(14 + Math.random() * 24);
+                    awayScore = Math.round(14 + Math.random() * 24);
+                } else if (week === currentWeek) {
+                    // Some games in progress, some scheduled
+                    status = Math.random() > 0.5 ? "in_progress" : "scheduled";
+                    if (status === "in_progress") {
+                        homeScore = Math.round(Math.random() * 28);
+                        awayScore = Math.round(Math.random() * 28);
+                    }
+                } else {
+                    status = "scheduled";
+                }
+
+                // Generate game date (Sunday of the week)
+                const seasonStart = new Date(options.season, 8, 5);
+                const gameDate = new Date(seasonStart);
+                gameDate.setDate(gameDate.getDate() + (week - 1) * 7);
+                gameDate.setHours(13, 0, 0, 0);
+
+                games.push({
+                    espnGameId: `mock-${options.season}-${week}-${homeTeam}-${awayTeam}`,
+                    season: options.season,
+                    week,
+                    homeTeam,
+                    awayTeam,
+                    homeScore,
+                    awayScore,
+                    gameDate: gameDate.toISOString(),
+                    venue: {
+                        name: `${homeTeam} Stadium`,
+                        city: "Mock City",
+                        state: "MC",
+                    },
+                    status,
+                });
+            }
+        }
+
+        return games;
     }
 
     /**

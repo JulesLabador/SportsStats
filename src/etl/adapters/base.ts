@@ -18,6 +18,7 @@ import type {
     RawPlayerProfile,
     RawNFLPlayerSeason,
     RawNFLWeeklyStat,
+    RawNFLGame,
 } from "../types";
 
 /**
@@ -132,6 +133,16 @@ export interface NFLDataSourceAdapter extends DataSourceAdapter {
      * @returns Array of raw NFL weekly stat records
      */
     fetchWeeklyStats(options: AdapterFetchOptions): Promise<RawNFLWeeklyStat[]>;
+
+    /**
+     * Fetch NFL games (upcoming, in-progress, and completed)
+     * If week is specified in options, fetches only that week
+     * Otherwise fetches all weeks for the season
+     *
+     * @param options - Fetch options including season and optional week
+     * @returns Array of raw NFL game records
+     */
+    fetchGames(options: AdapterFetchOptions): Promise<RawNFLGame[]>;
 }
 
 /**
@@ -215,6 +226,7 @@ export abstract class NFLBaseAdapter
     abstract fetchWeeklyStats(
         options: AdapterFetchOptions
     ): Promise<RawNFLWeeklyStat[]>;
+    abstract fetchGames(options: AdapterFetchOptions): Promise<RawNFLGame[]>;
 
     /**
      * Helper to get the current NFL season year

@@ -31,6 +31,7 @@ import type {
     RawPlayerProfile,
     RawNFLPlayerSeason,
     RawNFLWeeklyStat,
+    RawNFLGame,
 } from "../types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
@@ -299,6 +300,23 @@ export class NFLCompositeAdapter extends NFLBaseAdapter {
                 return this.fetchStatsFromSource(source.fallback, options);
             }
 
+            throw error;
+        }
+    }
+
+    /**
+     * Fetch NFL games
+     *
+     * Always uses ESPN as the primary source for game data since
+     * PFR doesn't provide schedule information.
+     */
+    async fetchGames(options: AdapterFetchOptions): Promise<RawNFLGame[]> {
+        log.info("Fetching games (using ESPN)");
+
+        try {
+            return await this.espnAdapter.fetchGames(options);
+        } catch (error) {
+            log.error({ error }, "Failed to fetch games from ESPN");
             throw error;
         }
     }

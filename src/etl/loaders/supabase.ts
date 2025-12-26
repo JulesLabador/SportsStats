@@ -14,6 +14,7 @@ import type {
     DbPlayerProfile,
     DbNFLPlayerSeason,
     DbNFLWeeklyStat,
+    DbNFLGame,
     PlayerProfileIdMap,
     PlayerSeasonIdMap,
     ETLRunRecord,
@@ -347,6 +348,53 @@ export class SupabaseLoader {
         }
 
         return playerProfileIdMap;
+    }
+
+    /**
+     * Upsert NFL games into the database
+     *
+     * Handles upcoming, in-progress, and completed games.
+     * Uses espn_game_id as the conflict target for updates.
+     *
+     * @param games - Array of NFL game records to upsert
+     * @returns Load result with count and any errors
+     */
+    async loadNFLGames(games: DbNFLGame[]): Promise<LoadResult> {
+        const errors: string[] = [];
+        let recordsUpserted = 0;
+
+        // Process in batches to avoid hitting limits
+        const batchSize = 100;
+        for (let i = 0; i < games.length; i += batchSize) {
+            const batch = games.slice(i, i + batchSize);
+
+            const { data, error } = await this.client
+                .from("nfl_games")
+                .upsert(batch, {
+                    onConflict: "espn_game_id",
+                    ignoreDuplicates: false,
+                })
+                .select();
+
+            if (error) {
+                errors.push(
+                    `NFL games batch ${i / batchSize + 1}: ${error.message}`
+                );
+            } else {
+                recordsUpserted += data?.length ?? batch.length;
+            }
+        }
+
+        log.info(
+            { recordsUpserted, errors: errors.length },
+            "Loaded NFL games"
+        );
+
+        return {
+            success: errors.length === 0,
+            recordsUpserted,
+            errors,
+        };
     }
 
     // =========================================================================

@@ -25,10 +25,13 @@ import type {
     RawPlayerProfile,
     RawNFLPlayerSeason,
     RawNFLWeeklyStat,
+    RawNFLGame,
     NFLTeam,
     NFLPosition,
+    NFLGameStatus,
     Json,
 } from "../types";
+import { CACHE_TTL } from "../types";
 import { CacheService } from "../services/cache.service";
 import { getRateLimiter } from "../services/rate-limiter.service";
 import { createChildLogger } from "@/lib/logger";
@@ -425,6 +428,227 @@ export class NFLESPNAdapter extends NFLBaseAdapter {
         }
 
         return stats;
+    }
+
+    /**
+     * Fetch NFL games (upcoming, in-progress, and completed)
+     *
+     * Fetches all games for the specified season/week with full game details
+     * including venue information and game status.
+     *
+     * @param options - Fetch options including season and optional week
+     * @returns Array of raw NFL game data
+     */
+    async fetchGames(options: AdapterFetchOptions): Promise<RawNFLGame[]> {
+        const games: RawNFLGame[] = [];
+
+        // Determine weeks to fetch
+        const weeks = options.week
+            ? [options.week]
+            : this.getAllWeeksForSeason(options.season);
+
+        for (const week of weeks) {
+            const weekGames = await this.fetchWeekGames(options.season, week);
+            games.push(...weekGames);
+        }
+
+        return games;
+    }
+
+    /**
+     * Fetch games for a specific week with caching
+     *
+     * Uses different TTLs based on game status:
+     * - Scheduled: 6 hours (games can be rescheduled)
+     * - In-progress: 1 hour (scores updating)
+     * - Completed: 24 hours (final scores don't change)
+     *
+     * @param season - Season year
+     * @param week - Week number
+     * @returns Array of raw NFL game data for the week
+     */
+    private async fetchWeekGames(
+        season: number,
+        week: number
+    ): Promise<RawNFLGame[]> {
+        const url = `${this.SCOREBOARD_URL}?seasontype=2&week=${week}&dates=${season}`;
+        const cacheKey = { season, week, type: "games" };
+
+        // Check cache first
+        if (this.cacheService) {
+            const cached =
+                await this.cacheService.get<ESPNScoreboardResponse>(
+                    "espn",
+                    "games",
+                    cacheKey
+                );
+
+            if (cached.hit && cached.data) {
+                log.debug({ season, week }, "Cache hit for games");
+                return this.parseGamesFromScoreboard(cached.data, season, week);
+            }
+        }
+
+        // Fetch from API
+        try {
+            const response = await this.fetchWithRateLimit(url);
+            const data = (await response.json()) as ESPNScoreboardResponse;
+
+            // Parse games to determine appropriate TTL
+            const games = this.parseGamesFromScoreboard(data, season, week);
+
+            // Determine TTL based on game statuses
+            // Use shortest TTL if any games are in-progress
+            const ttlMs = this.determineCacheTTL(games);
+
+            // Cache the response
+            if (this.cacheService) {
+                await this.cacheService.set(
+                    "espn",
+                    "games",
+                    cacheKey,
+                    data as unknown as Json,
+                    {
+                        ttlMs,
+                        season,
+                        week,
+                    }
+                );
+            }
+
+            return games;
+        } catch (error) {
+            log.warn({ season, week, error }, "Failed to fetch games for week");
+            return [];
+        }
+    }
+
+    /**
+     * Parse ESPN scoreboard response into RawNFLGame objects
+     *
+     * Extracts all game information including venue and status details.
+     *
+     * @param data - ESPN scoreboard response
+     * @param season - Season year
+     * @param week - Week number
+     * @returns Array of parsed game objects
+     */
+    private parseGamesFromScoreboard(
+        data: ESPNScoreboardResponse,
+        season: number,
+        week: number
+    ): RawNFLGame[] {
+        const games: RawNFLGame[] = [];
+
+        for (const event of data.events ?? []) {
+            const competition = event.competitions?.[0];
+            if (!competition) continue;
+
+            const homeCompetitor = competition.competitors.find(
+                (c) => c.homeAway === "home"
+            );
+            const awayCompetitor = competition.competitors.find(
+                (c) => c.homeAway === "away"
+            );
+
+            if (!homeCompetitor || !awayCompetitor) continue;
+
+            // Determine game status from ESPN status
+            const status = this.parseGameStatus(event.status);
+
+            // Parse scores (null for scheduled games)
+            const homeScore =
+                status === "scheduled"
+                    ? null
+                    : parseInt(homeCompetitor.score) || 0;
+            const awayScore =
+                status === "scheduled"
+                    ? null
+                    : parseInt(awayCompetitor.score) || 0;
+
+            // Parse venue information
+            const venue = competition.venue
+                ? {
+                      name: competition.venue.fullName,
+                      city: competition.venue.address?.city ?? "",
+                      state: competition.venue.address?.state ?? "",
+                  }
+                : undefined;
+
+            games.push({
+                espnGameId: event.id,
+                season,
+                week,
+                homeTeam: homeCompetitor.team.abbreviation as NFLTeam,
+                awayTeam: awayCompetitor.team.abbreviation as NFLTeam,
+                homeScore,
+                awayScore,
+                gameDate: event.date,
+                venue,
+                status,
+            });
+        }
+
+        return games;
+    }
+
+    /**
+     * Parse ESPN event status into our game status type
+     *
+     * @param espnStatus - ESPN status object
+     * @returns Normalized game status
+     */
+    private parseGameStatus(espnStatus: ESPNEvent["status"]): NFLGameStatus {
+        const state = espnStatus.type.state.toLowerCase();
+        const completed = espnStatus.type.completed;
+
+        if (completed) {
+            return "final";
+        } else if (state === "in") {
+            return "in_progress";
+        } else {
+            return "scheduled";
+        }
+    }
+
+    /**
+     * Determine appropriate cache TTL based on game statuses
+     *
+     * Uses the most conservative (shortest) TTL if games have mixed statuses.
+     *
+     * @param games - Array of games to check
+     * @returns TTL in milliseconds
+     */
+    private determineCacheTTL(games: RawNFLGame[]): number {
+        // Check if any games are in-progress
+        const hasInProgress = games.some((g) => g.status === "in_progress");
+        if (hasInProgress) {
+            return CACHE_TTL.IN_PROGRESS_GAME;
+        }
+
+        // Check if any games are scheduled (upcoming)
+        const hasScheduled = games.some((g) => g.status === "scheduled");
+        if (hasScheduled) {
+            return CACHE_TTL.SCHEDULE;
+        }
+
+        // All games are completed
+        return CACHE_TTL.COMPLETED_GAME;
+    }
+
+    /**
+     * Get all weeks for a season (including future weeks)
+     *
+     * Unlike getWeeksToFetch which only returns past weeks,
+     * this returns all 18 regular season weeks.
+     *
+     * @param season - Season year
+     * @returns Array of week numbers (1-18)
+     */
+    private getAllWeeksForSeason(season: number): number[] {
+        // For regular season, return weeks 1-18
+        // Could be extended to include playoffs (weeks 19-22)
+        return Array.from({ length: 18 }, (_, i) => i + 1);
     }
 
     /**

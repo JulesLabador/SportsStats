@@ -24,6 +24,7 @@ import type {
     RawPlayerProfile,
     RawNFLPlayerSeason,
     RawNFLWeeklyStat,
+    RawNFLGame,
     NFLTeam,
     NFLPosition,
     Json,
@@ -269,6 +270,17 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
         }
 
         return stats;
+    }
+
+    /**
+     * Fetch NFL games from PFR
+     *
+     * Note: PFR is primarily used for player stats, not schedule data.
+     * This method returns an empty array as game data should come from ESPN.
+     */
+    async fetchGames(_options: AdapterFetchOptions): Promise<RawNFLGame[]> {
+        log.debug("PFR adapter does not support game fetching, returning empty array");
+        return [];
     }
 
     /**
