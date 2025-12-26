@@ -590,5 +590,68 @@ src/etl/
 
 ---
 
-*Last updated: December 25, 2024*
+## 14. Upcoming Matches & Team Pages Feature
+
+### Game Data Storage
+**Decision**: Store game data in a dedicated `nfl_games` table via ETL, not live-fetched.
+
+**Reasoning**:
+- Faster page loads (no external API calls at request time)
+- Consistent with existing ETL architecture
+- Enables caching with appropriate TTLs
+- Allows for offline development with cached data
+
+### Caching Strategy for Games
+**Decision**: Use different TTLs based on game status.
+
+**TTLs**:
+- Scheduled games: 6 hours (games can be rescheduled)
+- In-progress games: 1 hour (scores updating)
+- Completed games: 24 hours (final scores don't change)
+
+**Reasoning**:
+- Balances freshness vs API load
+- Uses existing `CacheService` and `api_response_cache` table
+- Same pattern as other ESPN endpoints
+
+### Team Page Scope
+**Decision**: Full team pages with roster, record, recent results, and upcoming games.
+
+**Reasoning**:
+- Provides comprehensive team information
+- Enables navigation from matchup pages
+- Shows context for player performance
+- Supports betting research workflows
+
+### Navigation Pattern
+**Decision**: TeamBadge component optionally links to team page via `linkToTeam` prop.
+
+**Reasoning**:
+- Backward compatible (default behavior unchanged)
+- Prevents unwanted navigation in some contexts (e.g., player cards)
+- Uses `stopPropagation()` to prevent parent click handlers
+- Consistent with existing component patterns
+
+### Database Schema
+**Decision**: New `nfl_games` table with ESPN game ID as unique constraint.
+
+**Structure**:
+- `espn_game_id` (TEXT, unique) - For upsert operations
+- `status` (scheduled/in_progress/final) - For filtering
+- `game_date` (TIMESTAMPTZ) - For ordering
+- Venue fields (name, city, state) - For display
+
+**Views**:
+- `nfl_upcoming_games` - Scheduled games ordered by date
+- `nfl_recent_games` - Completed games ordered by date desc
+- `nfl_team_details` - Team record aggregated from games
+
+**Reasoning**:
+- Efficient queries for common use cases
+- Separate constraint for ESPN ID vs season/week/teams
+- Supports both upcoming and historical game queries
+
+---
+
+*Last updated: December 26, 2024*
 
