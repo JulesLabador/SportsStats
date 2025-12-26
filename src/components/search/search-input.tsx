@@ -12,6 +12,8 @@ import {
     useIsSearching,
 } from "@/stores/search-store";
 import type { Player } from "@/lib/types";
+import { TeamBadge } from "../player/team-badge";
+import { PositionBadge } from "../player/position-badge";
 
 /**
  * Props for the SearchInput component
@@ -214,7 +216,7 @@ export function SearchInput({
                                             type="button"
                                             onClick={() => handleSelect(player)}
                                             className={cn(
-                                                "w-full px-4 py-3 flex items-center gap-3 text-left transition-colors",
+                                                "w-full px-4 py-3 flex items-center gap-3 text-left transition-colors hover:cursor-pointer",
                                                 focusedIndex === index
                                                     ? "bg-accent"
                                                     : "hover:bg-accent/50"
@@ -233,18 +235,14 @@ export function SearchInput({
                                                     {player.name}
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-0.5">
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className="text-xs"
-                                                    >
-                                                        {player.team}
-                                                    </Badge>
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="text-xs"
-                                                    >
-                                                        {player.position}
-                                                    </Badge>
+                                                    <TeamBadge
+                                                        team={player.team}
+                                                    />
+                                                    <PositionBadge
+                                                        playerPosition={
+                                                            player.position
+                                                        }
+                                                    />
                                                 </div>
                                             </div>
 

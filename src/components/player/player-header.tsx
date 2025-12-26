@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/select";
 import { getTeamColor, getPositionColor } from "@/lib/team-colors";
 import type { Player } from "@/lib/types";
+import { TeamBadge } from "./team-badge";
+import { PositionBadge } from "./position-badge";
 
 /**
  * Props for the PlayerHeader component
@@ -73,18 +75,8 @@ export function PlayerHeader({
 
                     {/* Badges row */}
                     <div className="flex items-center gap-2 flex-wrap">
-                        <Badge
-                            variant="secondary"
-                            className={cn("font-semibold", teamColor)}
-                        >
-                            {player.team}
-                        </Badge>
-                        <Badge
-                            variant="secondary"
-                            className={cn("font-semibold", positionColor)}
-                        >
-                            {player.position}
-                        </Badge>
+                        <TeamBadge team={player.team} />
+                        <PositionBadge playerPosition={player.position} />
                     </div>
                 </div>
 

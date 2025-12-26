@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchWrapper } from "@/components/search/search-wrapper";
-import { getFeaturedPlayers } from "@/lib/data";
+import { getFeaturedPlayers, getUpcomingGames } from "@/lib/data";
 import { getTeamColor, getPositionColor } from "@/lib/team-colors";
 import { cn } from "@/lib/utils";
 import type { Player } from "@/lib/types";
+import { TeamBadge } from "@/components/player/team-badge";
+import { PositionBadge } from "@/components/player/position-badge";
+import { UpcomingMatchCard } from "@/components/matchup/upcoming-match-card";
 
 /**
  * SEO metadata for the home page
@@ -34,13 +37,17 @@ export const metadata: Metadata = {
  * Home page component (Server Component)
  *
  * Features:
- * - Server-side data fetching for featured players (SEO-friendly)
+ * - Server-side data fetching for featured players and upcoming games (SEO-friendly)
  * - Client-side search via SearchWrapper component
+ * - Upcoming matches section
  * - Static hero section and footer
  */
 export default async function HomePage() {
-    // Fetch featured players server-side for SEO
-    const featuredPlayers = await getFeaturedPlayers();
+    // Fetch data server-side for SEO
+    const [featuredPlayers, upcomingGames] = await Promise.all([
+        getFeaturedPlayers(),
+        getUpcomingGames(6),
+    ]);
 
     return (
         <main className="min-h-screen">
@@ -64,6 +71,35 @@ export default async function HomePage() {
                     {/* Search input (client component) */}
                     <SearchWrapper className="max-w-xl mx-auto" />
                 </div>
+            </section>
+
+            {/* Upcoming matches section */}
+            <section className="max-w-5xl mx-auto px-4 pb-12">
+                <div className="mb-6 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-muted-foreground">
+                        Upcoming Matches
+                    </h2>
+                    <Badge variant="secondary" className="text-xs">
+                        NFL
+                    </Badge>
+                </div>
+
+                {upcomingGames.length === 0 ? (
+                    // Empty state
+                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-lg">
+                        <p>
+                            No upcoming games scheduled. Check back later for
+                            the latest matchups.
+                        </p>
+                    </div>
+                ) : (
+                    // Games grid
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {upcomingGames.map((game) => (
+                            <UpcomingMatchCard key={game.id} game={game} />
+                        ))}
+                    </div>
+                )}
             </section>
 
             {/* Featured players section */}
@@ -143,24 +179,10 @@ function PlayerCard({ player }: PlayerCardProps) {
                                 </h3>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
-                                <Badge
-                                    variant="secondary"
-                                    className={cn(
-                                        "text-xs font-semibold",
-                                        teamColor
-                                    )}
-                                >
-                                    {player.team}
-                                </Badge>
-                                <Badge
-                                    variant="secondary"
-                                    className={cn(
-                                        "text-xs font-semibold",
-                                        positionColor
-                                    )}
-                                >
-                                    {player.position}
-                                </Badge>
+                                <TeamBadge team={player.team} />
+                                <PositionBadge
+                                    playerPosition={player.position}
+                                />
                             </div>
                         </div>
 
