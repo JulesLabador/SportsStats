@@ -209,3 +209,114 @@ export function isTEStats(stats: PositionStats): stats is TEStats {
         !("rushingYards" in stats)
     );
 }
+
+// ============================================================================
+// GAME & MATCHUP TYPES
+// ============================================================================
+
+/** Game status for NFL games */
+export type GameStatus = "scheduled" | "in_progress" | "final";
+
+/**
+ * NFL game/matchup information
+ * Used for upcoming matches and matchup detail pages
+ */
+export interface NFLGame {
+    /** Internal database ID */
+    id: string;
+    /** ESPN's game identifier */
+    espnGameId: string;
+    /** Season year */
+    season: number;
+    /** Week number (1-18 regular, 19-22 playoffs) */
+    week: number;
+    /** Home team abbreviation */
+    homeTeam: NFLTeam;
+    /** Away team abbreviation */
+    awayTeam: NFLTeam;
+    /** Home team score (null for upcoming games) */
+    homeScore: number | null;
+    /** Away team score (null for upcoming games) */
+    awayScore: number | null;
+    /** Game date and time (ISO string) */
+    gameDate: string;
+    /** Venue information */
+    venue?: {
+        name: string;
+        city: string;
+        state: string;
+    };
+    /** Game status */
+    status: GameStatus;
+}
+
+/**
+ * Team win/loss/tie record
+ */
+export interface TeamRecord {
+    wins: number;
+    losses: number;
+    ties: number;
+}
+
+/**
+ * Full team information including roster and record
+ * Used for team detail pages
+ */
+export interface TeamInfo {
+    /** Team abbreviation (e.g., "KC", "SF") */
+    abbreviation: NFLTeam;
+    /** Full team name (e.g., "Kansas City Chiefs") */
+    name: string;
+    /** Current season record */
+    record: TeamRecord;
+    /** Team roster (active players) */
+    players: Player[];
+}
+
+/**
+ * NFL team full names mapping
+ */
+export const NFL_TEAM_NAMES: Record<NFLTeam, string> = {
+    ARI: "Arizona Cardinals",
+    ATL: "Atlanta Falcons",
+    BAL: "Baltimore Ravens",
+    BUF: "Buffalo Bills",
+    CAR: "Carolina Panthers",
+    CHI: "Chicago Bears",
+    CIN: "Cincinnati Bengals",
+    CLE: "Cleveland Browns",
+    DAL: "Dallas Cowboys",
+    DEN: "Denver Broncos",
+    DET: "Detroit Lions",
+    GB: "Green Bay Packers",
+    HOU: "Houston Texans",
+    IND: "Indianapolis Colts",
+    JAX: "Jacksonville Jaguars",
+    KC: "Kansas City Chiefs",
+    LAC: "Los Angeles Chargers",
+    LAR: "Los Angeles Rams",
+    LV: "Las Vegas Raiders",
+    MIA: "Miami Dolphins",
+    MIN: "Minnesota Vikings",
+    NE: "New England Patriots",
+    NO: "New Orleans Saints",
+    NYG: "New York Giants",
+    NYJ: "New York Jets",
+    PHI: "Philadelphia Eagles",
+    PIT: "Pittsburgh Steelers",
+    SEA: "Seattle Seahawks",
+    SF: "San Francisco 49ers",
+    TB: "Tampa Bay Buccaneers",
+    TEN: "Tennessee Titans",
+    WAS: "Washington Commanders",
+};
+
+/**
+ * Get the full name for an NFL team
+ * @param team - Team abbreviation
+ * @returns Full team name
+ */
+export function getTeamFullName(team: NFLTeam): string {
+    return NFL_TEAM_NAMES[team] ?? team;
+}

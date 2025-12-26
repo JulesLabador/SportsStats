@@ -18,10 +18,16 @@ import type {
     RBStats,
     WRStats,
     TEStats,
+    NFLGame,
+    GameStatus,
+    TeamInfo,
+    TeamRecord,
 } from "./types";
+import { NFL_TEAM_NAMES } from "./types";
 import type {
     NFLWeeklyStatsWithPlayer,
     NFLPlayerSeasonDetails,
+    NFLGameRow,
 } from "./database.types";
 
 /**
@@ -409,5 +415,215 @@ function calculateSeasonSummary(
         gamesPlayed,
         totalStats: totalStats as unknown as PositionStats,
         averageStats: averageStats as unknown as PositionStats,
+    };
+}
+
+// ============================================================================
+// Game & Matchup Functions
+// ============================================================================
+
+/**
+ * Get upcoming NFL games
+ * Returns scheduled games ordered by date
+ * @param limit - Maximum number of games to return (default 10)
+ * @returns Array of upcoming games
+ */
+export async function getUpcomingGames(limit: number = 10): Promise<NFLGame[]> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("*")
+        .eq("status", "scheduled")
+        .gte("game_date", new Date().toISOString())
+        .order("game_date", { ascending: true })
+        .limit(limit);
+
+    if (error) {
+        console.error("Error fetching upcoming games:", error);
+        return [];
+    }
+
+    return (data || []).map(transformToNFLGame);
+}
+
+/**
+ * Get a single game by ID
+ * @param gameId - The game's database ID
+ * @returns Game data or undefined if not found
+ */
+export async function getGameById(gameId: string): Promise<NFLGame | undefined> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("*")
+        .eq("id", gameId)
+        .single();
+
+    if (error || !data) {
+        console.error("Error fetching game:", error);
+        return undefined;
+    }
+
+    return transformToNFLGame(data);
+}
+
+/**
+ * Get recent completed games for a team
+ * @param team - Team abbreviation
+ * @param limit - Maximum number of games to return (default 5)
+ * @returns Array of recent completed games
+ */
+export async function getTeamRecentResults(
+    team: NFLTeam,
+    limit: number = 5
+): Promise<NFLGame[]> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("*")
+        .eq("status", "final")
+        .or(`home_team.eq.${team},away_team.eq.${team}`)
+        .order("game_date", { ascending: false })
+        .limit(limit);
+
+    if (error) {
+        console.error("Error fetching team recent results:", error);
+        return [];
+    }
+
+    return (data || []).map(transformToNFLGame);
+}
+
+/**
+ * Get upcoming games for a team
+ * @param team - Team abbreviation
+ * @param limit - Maximum number of games to return (default 3)
+ * @returns Array of upcoming games for the team
+ */
+export async function getTeamUpcomingGames(
+    team: NFLTeam,
+    limit: number = 3
+): Promise<NFLGame[]> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("*")
+        .eq("status", "scheduled")
+        .or(`home_team.eq.${team},away_team.eq.${team}`)
+        .gte("game_date", new Date().toISOString())
+        .order("game_date", { ascending: true })
+        .limit(limit);
+
+    if (error) {
+        console.error("Error fetching team upcoming games:", error);
+        return [];
+    }
+
+    return (data || []).map(transformToNFLGame);
+}
+
+// ============================================================================
+// Team Functions
+// ============================================================================
+
+/**
+ * Get full team information including roster and record
+ * @param team - Team abbreviation
+ * @param season - Season year (defaults to 2024)
+ * @returns Team info with roster and record
+ */
+export async function getTeamInfo(
+    team: NFLTeam,
+    season: number = 2024
+): Promise<TeamInfo | undefined> {
+    const supabase = createServerClient();
+
+    // Get team record from the view
+    const { data: teamData, error: teamError } = await supabase
+        .from("nfl_team_details")
+        .select("*")
+        .eq("abbreviation", team)
+        .eq("season", season)
+        .single();
+
+    // Get team roster
+    const players = await getTeamPlayers(team, season);
+
+    // Build team record (default to 0-0-0 if no data)
+    const record: TeamRecord = {
+        wins: teamData?.wins ?? 0,
+        losses: teamData?.losses ?? 0,
+        ties: teamData?.ties ?? 0,
+    };
+
+    return {
+        abbreviation: team,
+        name: NFL_TEAM_NAMES[team] ?? team,
+        record,
+        players,
+    };
+}
+
+/**
+ * Get all players on a team for a season
+ * @param team - Team abbreviation
+ * @param season - Season year (defaults to 2024)
+ * @returns Array of players on the team
+ */
+export async function getTeamPlayers(
+    team: NFLTeam,
+    season: number = 2024
+): Promise<Player[]> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_player_season_details")
+        .select("*")
+        .eq("team", team)
+        .eq("season", season)
+        .eq("is_active", true)
+        .not("name", "ilike", "% Team")
+        .not("name", "eq", "")
+        .order("position")
+        .order("name");
+
+    if (error) {
+        console.error("Error fetching team players:", error);
+        return [];
+    }
+
+    return (data || []).map(transformToPlayer);
+}
+
+// ============================================================================
+// Game Transform Functions
+// ============================================================================
+
+/**
+ * Transform database game record to application NFLGame type
+ */
+function transformToNFLGame(data: NFLGameRow): NFLGame {
+    return {
+        id: data.id,
+        espnGameId: data.espn_game_id,
+        season: data.season,
+        week: data.week,
+        homeTeam: data.home_team as NFLTeam,
+        awayTeam: data.away_team as NFLTeam,
+        homeScore: data.home_score,
+        awayScore: data.away_score,
+        gameDate: data.game_date,
+        venue: data.venue_name
+            ? {
+                  name: data.venue_name,
+                  city: data.venue_city ?? "",
+                  state: data.venue_state ?? "",
+              }
+            : undefined,
+        status: data.status as GameStatus,
     };
 }
