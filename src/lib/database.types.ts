@@ -367,6 +367,60 @@ export type Database = {
                     }
                 ];
             };
+            nfl_games: {
+                Row: {
+                    id: string;
+                    espn_game_id: string;
+                    season: number;
+                    week: number;
+                    home_team: string;
+                    away_team: string;
+                    home_score: number | null;
+                    away_score: number | null;
+                    game_date: string;
+                    venue_name: string | null;
+                    venue_city: string | null;
+                    venue_state: string | null;
+                    status: "scheduled" | "in_progress" | "final";
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    espn_game_id: string;
+                    season: number;
+                    week: number;
+                    home_team: string;
+                    away_team: string;
+                    home_score?: number | null;
+                    away_score?: number | null;
+                    game_date: string;
+                    venue_name?: string | null;
+                    venue_city?: string | null;
+                    venue_state?: string | null;
+                    status?: "scheduled" | "in_progress" | "final";
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    espn_game_id?: string;
+                    season?: number;
+                    week?: number;
+                    home_team?: string;
+                    away_team?: string;
+                    home_score?: number | null;
+                    away_score?: number | null;
+                    game_date?: string;
+                    venue_name?: string | null;
+                    venue_city?: string | null;
+                    venue_state?: string | null;
+                    status?: "scheduled" | "in_progress" | "final";
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
         };
         Views: {
             nfl_player_season_details: {
@@ -441,6 +495,51 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            nfl_team_details: {
+                Row: {
+                    abbreviation: string | null;
+                    season: number | null;
+                    wins: number | null;
+                    losses: number | null;
+                    ties: number | null;
+                    roster_size: number | null;
+                };
+                Relationships: [];
+            };
+            nfl_upcoming_games: {
+                Row: {
+                    id: string | null;
+                    espn_game_id: string | null;
+                    season: number | null;
+                    week: number | null;
+                    home_team: string | null;
+                    away_team: string | null;
+                    game_date: string | null;
+                    venue_name: string | null;
+                    venue_city: string | null;
+                    venue_state: string | null;
+                    status: string | null;
+                };
+                Relationships: [];
+            };
+            nfl_recent_games: {
+                Row: {
+                    id: string | null;
+                    espn_game_id: string | null;
+                    season: number | null;
+                    week: number | null;
+                    home_team: string | null;
+                    away_team: string | null;
+                    home_score: number | null;
+                    away_score: number | null;
+                    game_date: string | null;
+                    venue_name: string | null;
+                    venue_city: string | null;
+                    venue_state: string | null;
+                    status: string | null;
+                };
+                Relationships: [];
+            };
         };
         Functions: {
             cleanup_expired_cache: {
@@ -512,6 +611,11 @@ export type PlayerIdentityMappingInsert =
 export type PlayerIdentityMappingUpdate =
     Database["public"]["Tables"]["player_identity_mappings"]["Update"];
 
+// NFL Games
+export type NFLGameRow = Database["public"]["Tables"]["nfl_games"]["Row"];
+export type NFLGameInsert = Database["public"]["Tables"]["nfl_games"]["Insert"];
+export type NFLGameUpdate = Database["public"]["Tables"]["nfl_games"]["Update"];
+
 // Views
 export type NFLPlayerSeasonDetails =
     Database["public"]["Views"]["nfl_player_season_details"]["Row"];
@@ -521,6 +625,12 @@ export type ApiCacheStats =
     Database["public"]["Views"]["api_cache_stats"]["Row"];
 export type PlayerIdentityCoverage =
     Database["public"]["Views"]["player_identity_coverage"]["Row"];
+export type NFLTeamDetails =
+    Database["public"]["Views"]["nfl_team_details"]["Row"];
+export type NFLUpcomingGames =
+    Database["public"]["Views"]["nfl_upcoming_games"]["Row"];
+export type NFLRecentGames =
+    Database["public"]["Views"]["nfl_recent_games"]["Row"];
 
 // ============================================================================
 // Profile Metadata Types (for JSONB column)
