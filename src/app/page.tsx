@@ -93,8 +93,8 @@ export default async function HomePage() {
                         </p>
                     </div>
                 ) : (
-                    // Games grid
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    // Games list (single column, full width)
+                    <div className="flex flex-col gap-3">
                         {upcomingGames.map((game) => (
                             <UpcomingMatchCard key={game.id} game={game} />
                         ))}
