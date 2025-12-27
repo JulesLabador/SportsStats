@@ -1,9 +1,16 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { PositionBadge } from "@/components/player/position-badge";
 import type { Player, NFLTeam, PlayerPosition } from "@/lib/types";
 import { getTeamFullName } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+/** Number of players to show by default before collapsing */
+const DEFAULT_VISIBLE_PLAYERS = 5;
 
 /**
  * Props for TeamRosterTable component
@@ -45,6 +52,26 @@ function groupPlayersByPosition(
 }
 
 /**
+ * Flatten grouped players into an ordered list
+ * Maintains position group order (QB, RB, WR, TE)
+ *
+ * @param groupedPlayers - Players grouped by position
+ * @returns Flat array of players in display order
+ */
+function flattenPlayersInOrder(
+    groupedPlayers: Record<PlayerPosition, Player[]>
+): Player[] {
+    const orderedPositions: PlayerPosition[] = ["QB", "RB", "WR", "TE"];
+    const flattened: Player[] = [];
+
+    for (const position of orderedPositions) {
+        flattened.push(...groupedPlayers[position]);
+    }
+
+    return flattened;
+}
+
+/**
  * Position display order and labels
  */
 const POSITION_ORDER: { position: PlayerPosition; label: string }[] = [
@@ -61,6 +88,7 @@ const POSITION_ORDER: { position: PlayerPosition; label: string }[] = [
  * - Position headers
  * - Player name, jersey number
  * - Links to player pages
+ * - Collapsible list showing first 5 players by default
  *
  * @example
  * ```tsx
@@ -73,8 +101,28 @@ export function TeamRosterTable({
     isHome = false,
     className,
 }: TeamRosterTableProps) {
+    const [isExpanded, setIsExpanded] = useState(false);
     const groupedPlayers = groupPlayersByPosition(players);
     const teamName = getTeamFullName(team);
+
+    // Get flattened list to determine visible players
+    const flattenedPlayers = flattenPlayersInOrder(groupedPlayers);
+    const totalPlayers = flattenedPlayers.length;
+    const hasMorePlayers = totalPlayers > DEFAULT_VISIBLE_PLAYERS;
+
+    // Create a set of visible player IDs when collapsed
+    const visiblePlayerIds = new Set(
+        isExpanded
+            ? flattenedPlayers.map((p) => p.id)
+            : flattenedPlayers.slice(0, DEFAULT_VISIBLE_PLAYERS).map((p) => p.id)
+    );
+
+    /**
+     * Toggle expanded/collapsed state
+     */
+    const handleToggle = () => {
+        setIsExpanded((prev) => !prev);
+    };
 
     return (
         <Card className={cn("", className)}>
@@ -100,7 +148,13 @@ export function TeamRosterTable({
                     <div className="space-y-6">
                         {POSITION_ORDER.map(({ position, label }) => {
                             const positionPlayers = groupedPlayers[position];
-                            if (positionPlayers.length === 0) return null;
+                            // Filter to only visible players for this position
+                            const visiblePositionPlayers = positionPlayers.filter(
+                                (player) => visiblePlayerIds.has(player.id)
+                            );
+
+                            // Skip position group if no visible players
+                            if (visiblePositionPlayers.length === 0) return null;
 
                             return (
                                 <div key={position}>
@@ -116,7 +170,7 @@ export function TeamRosterTable({
 
                                     {/* Players list */}
                                     <div className="space-y-1">
-                                        {positionPlayers.map((player) => (
+                                        {visiblePositionPlayers.map((player) => (
                                             <PlayerRow
                                                 key={player.id}
                                                 player={player}
@@ -126,6 +180,28 @@ export function TeamRosterTable({
                                 </div>
                             );
                         })}
+
+                        {/* Toggle button - only show if there are more players than the default */}
+                        {hasMorePlayers && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleToggle}
+                                className="w-full mt-4"
+                            >
+                                {isExpanded ? (
+                                    <>
+                                        <ChevronUpIcon className="w-4 h-4 mr-2" />
+                                        Show Less
+                                    </>
+                                ) : (
+                                    <>
+                                        <ChevronDownIcon className="w-4 h-4 mr-2" />
+                                        Show All {totalPlayers} Players
+                                    </>
+                                )}
+                            </Button>
+                        )}
                     </div>
                 )}
             </CardContent>
@@ -176,6 +252,48 @@ function PlayerRow({ player }: PlayerRowProps) {
 }
 
 /**
+ * Chevron down icon component
+ */
+function ChevronDownIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+            />
+        </svg>
+    );
+}
+
+/**
+ * Chevron up icon component
+ */
+function ChevronUpIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 15l7-7 7 7"
+            />
+        </svg>
+    );
+}
+
+/**
  * Skeleton loader for TeamRosterTable
  */
 export function TeamRosterTableSkeleton() {
@@ -212,4 +330,3 @@ export function TeamRosterTableSkeleton() {
         </Card>
     );
 }
-
