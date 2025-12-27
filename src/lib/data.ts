@@ -22,6 +22,9 @@ import type {
     GameStatus,
     TeamInfo,
     TeamRecord,
+    HistoricalMatchupStats,
+    HistoricalGame,
+    TeamMatchupStats,
 } from "./types";
 import { NFL_TEAM_NAMES } from "./types";
 import type {
@@ -625,5 +628,286 @@ function transformToNFLGame(data: NFLGameRow): NFLGame {
               }
             : undefined,
         status: data.status as GameStatus,
+    };
+}
+
+// ============================================================================
+// Historical Matchup Functions
+// ============================================================================
+
+/**
+ * Transform a database game row to a HistoricalGame
+ */
+function transformToHistoricalGame(data: NFLGameRow): HistoricalGame {
+    return {
+        id: data.id,
+        season: data.season,
+        week: data.week,
+        gameDate: data.game_date,
+        homeTeam: data.home_team as NFLTeam,
+        awayTeam: data.away_team as NFLTeam,
+        homeScore: data.home_score ?? 0,
+        awayScore: data.away_score ?? 0,
+        venue: data.venue_name ?? undefined,
+    };
+}
+
+/**
+ * Calculate the current streak for a team in historical matchups
+ * @param games - Games sorted by date descending (most recent first)
+ * @param team - The team to calculate streak for
+ * @returns Positive number for winning streak, negative for losing streak
+ */
+function calculateStreak(games: HistoricalGame[], team: NFLTeam): number {
+    if (games.length === 0) return 0;
+
+    let streak = 0;
+    let firstGameResult: "win" | "loss" | "tie" | null = null;
+
+    for (const game of games) {
+        // Determine if the team won, lost, or tied this game
+        const teamScore =
+            game.homeTeam === team ? game.homeScore : game.awayScore;
+        const opponentScore =
+            game.homeTeam === team ? game.awayScore : game.homeScore;
+
+        let result: "win" | "loss" | "tie";
+        if (teamScore > opponentScore) {
+            result = "win";
+        } else if (teamScore < opponentScore) {
+            result = "loss";
+        } else {
+            result = "tie";
+        }
+
+        // Set the first game result to track what kind of streak we have
+        if (firstGameResult === null) {
+            firstGameResult = result;
+        }
+
+        // If the result matches the streak type, increment
+        if (result === firstGameResult) {
+            if (result === "win") {
+                streak++;
+            } else if (result === "loss") {
+                streak--;
+            }
+            // Ties don&apos;t count as part of win/loss streaks
+        } else if (result !== "tie") {
+            // Streak broken by opposite result
+            break;
+        }
+    }
+
+    return streak;
+}
+
+/**
+ * Calculate team-specific stats from historical games
+ */
+function calculateTeamStats(
+    games: HistoricalGame[],
+    team: NFLTeam
+): TeamMatchupStats {
+    let wins = 0;
+    let losses = 0;
+    let ties = 0;
+    let totalPointsScored = 0;
+    let totalPointsAllowed = 0;
+
+    let highestScoringWin: HistoricalGame | null = null;
+    let highestScoringLoss: HistoricalGame | null = null;
+    let largestVictory: HistoricalGame | null = null;
+    let largestVictoryMargin = 0;
+
+    for (const game of games) {
+        // Calculate points for this team
+        const teamScore =
+            game.homeTeam === team ? game.homeScore : game.awayScore;
+        const opponentScore =
+            game.homeTeam === team ? game.awayScore : game.homeScore;
+
+        totalPointsScored += teamScore;
+        totalPointsAllowed += opponentScore;
+
+        if (teamScore > opponentScore) {
+            // Win
+            wins++;
+            const margin = teamScore - opponentScore;
+
+            // Check for highest scoring win
+            if (!highestScoringWin || teamScore > getTeamScore(highestScoringWin, team)) {
+                highestScoringWin = game;
+            }
+
+            // Check for largest victory
+            if (margin > largestVictoryMargin) {
+                largestVictoryMargin = margin;
+                largestVictory = game;
+            }
+        } else if (teamScore < opponentScore) {
+            // Loss
+            losses++;
+
+            // Check for highest scoring loss
+            if (!highestScoringLoss || teamScore > getTeamScore(highestScoringLoss, team)) {
+                highestScoringLoss = game;
+            }
+        } else {
+            // Tie
+            ties++;
+        }
+    }
+
+    const totalGames = games.length;
+    const avgPointsScored = totalGames > 0 ? Math.round((totalPointsScored / totalGames) * 10) / 10 : 0;
+    const avgPointsAllowed = totalGames > 0 ? Math.round((totalPointsAllowed / totalGames) * 10) / 10 : 0;
+
+    return {
+        team,
+        wins,
+        losses,
+        ties,
+        totalPointsScored,
+        totalPointsAllowed,
+        avgPointsScored,
+        avgPointsAllowed,
+        highestScoringWin,
+        highestScoringLoss,
+        largestVictory,
+        currentStreak: calculateStreak(games, team),
+    };
+}
+
+/**
+ * Helper to get the score for a specific team in a game
+ */
+function getTeamScore(game: HistoricalGame, team: NFLTeam): number {
+    return game.homeTeam === team ? game.homeScore : game.awayScore;
+}
+
+/**
+ * Get historical matchup statistics between two teams
+ * @param team1 - First team abbreviation
+ * @param team2 - Second team abbreviation
+ * @returns Historical matchup stats or undefined if no games found
+ */
+export async function getHistoricalMatchupStats(
+    team1: NFLTeam,
+    team2: NFLTeam
+): Promise<HistoricalMatchupStats | undefined> {
+    const supabase = createServerClient();
+
+    // Fetch all completed games between these two teams
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("*")
+        .eq("status", "final")
+        .or(
+            `and(home_team.eq.${team1},away_team.eq.${team2}),and(home_team.eq.${team2},away_team.eq.${team1})`
+        )
+        .order("game_date", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching historical matchup:", error);
+        return undefined;
+    }
+
+    // If no games found, return stats with zero values
+    if (!data || data.length === 0) {
+        return {
+            team1,
+            team2,
+            totalGames: 0,
+            team1Stats: {
+                team: team1,
+                wins: 0,
+                losses: 0,
+                ties: 0,
+                totalPointsScored: 0,
+                totalPointsAllowed: 0,
+                avgPointsScored: 0,
+                avgPointsAllowed: 0,
+                highestScoringWin: null,
+                highestScoringLoss: null,
+                largestVictory: null,
+                currentStreak: 0,
+            },
+            team2Stats: {
+                team: team2,
+                wins: 0,
+                losses: 0,
+                ties: 0,
+                totalPointsScored: 0,
+                totalPointsAllowed: 0,
+                avgPointsScored: 0,
+                avgPointsAllowed: 0,
+                highestScoringWin: null,
+                highestScoringLoss: null,
+                largestVictory: null,
+                currentStreak: 0,
+            },
+            lastMeeting: null,
+            closestGame: null,
+            highestScoringGame: null,
+            lowestScoringGame: null,
+            games: [],
+        };
+    }
+
+    // Transform to HistoricalGame type
+    const games = data.map(transformToHistoricalGame);
+
+    // Calculate team stats
+    const team1Stats = calculateTeamStats(games, team1);
+    const team2Stats = calculateTeamStats(games, team2);
+
+    // Find special games
+    const lastMeeting = games[0] ?? null;
+
+    // Find closest game (smallest margin)
+    let closestGame: HistoricalGame | null = null;
+    let smallestMargin = Infinity;
+
+    // Find highest and lowest scoring games
+    let highestScoringGame: HistoricalGame | null = null;
+    let highestTotalScore = 0;
+    let lowestScoringGame: HistoricalGame | null = null;
+    let lowestTotalScore = Infinity;
+
+    for (const game of games) {
+        const totalScore = game.homeScore + game.awayScore;
+        const margin = Math.abs(game.homeScore - game.awayScore);
+
+        // Closest game
+        if (margin < smallestMargin) {
+            smallestMargin = margin;
+            closestGame = game;
+        }
+
+        // Highest scoring
+        if (totalScore > highestTotalScore) {
+            highestTotalScore = totalScore;
+            highestScoringGame = game;
+        }
+
+        // Lowest scoring
+        if (totalScore < lowestTotalScore) {
+            lowestTotalScore = totalScore;
+            lowestScoringGame = game;
+        }
+    }
+
+    return {
+        team1,
+        team2,
+        totalGames: games.length,
+        team1Stats,
+        team2Stats,
+        lastMeeting,
+        closestGame,
+        highestScoringGame,
+        lowestScoringGame,
+        games,
     };
 }
