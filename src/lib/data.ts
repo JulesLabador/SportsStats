@@ -34,6 +34,16 @@ import type {
 } from "./database.types";
 
 /**
+ * Get the current NFL season year
+ * NFL seasons span two calendar years (e.g., 2024-2025 season is "2025")
+ * The season year is the year the season ends in
+ * @returns Current NFL season year
+ */
+export function getCurrentSeason(): number {
+    return new Date().getFullYear();
+}
+
+/**
  * Search players by name, team, or position
  * @param query - Search query string
  * @returns Array of matching players (deduplicated by player_id)
@@ -141,7 +151,7 @@ export async function getAvailableSeasons(playerId: string): Promise<number[]> {
  */
 export async function getPlayerWithStats(
     playerId: string,
-    season: number = 2024
+    season: number = getCurrentSeason()
 ): Promise<PlayerWithStats | undefined> {
     const supabase = createServerClient();
 
@@ -549,7 +559,7 @@ export async function getTeamUpcomingGames(
  */
 export async function getTeamInfo(
     team: NFLTeam,
-    season: number = 2024
+    season: number = getCurrentSeason()
 ): Promise<TeamInfo | undefined> {
     const supabase = createServerClient();
 
@@ -581,53 +591,84 @@ export async function getTeamInfo(
 
 /**
  * Get team records for multiple teams
- * Efficiently fetches records for a batch of teams in a single query
+ * Calculates win/loss/tie records directly from completed games
  * @param teams - Array of team abbreviations
  * @param season - Season year (defaults to 2024)
  * @returns Map of team abbreviation to TeamRecord
  */
 export async function getTeamRecords(
     teams: NFLTeam[],
-    season: number = 2024
+    season: number = getCurrentSeason()
 ): Promise<Map<NFLTeam, TeamRecord>> {
     const supabase = createServerClient();
     const recordsMap = new Map<NFLTeam, TeamRecord>();
+
+    // Initialize all teams with 0-0-0
+    teams.forEach((team) => {
+        recordsMap.set(team, { wins: 0, losses: 0, ties: 0 });
+    });
 
     // Return empty map if no teams provided
     if (teams.length === 0) {
         return recordsMap;
     }
 
-    // Query team records for all teams at once
-    const { data, error } = await supabase
-        .from("nfl_team_details")
-        .select("abbreviation, wins, losses, ties")
-        .in("abbreviation", teams)
-        .eq("season", season);
+    // Query completed games for the season involving any of the requested teams
+    const { data: games, error } = await supabase
+        .from("nfl_games")
+        .select("home_team, away_team, home_score, away_score")
+        .eq("season", season)
+        .eq("status", "final");
 
     if (error) {
-        console.error("Error fetching team records:", error);
-        // Return empty records for all teams on error
-        teams.forEach((team) => {
-            recordsMap.set(team, { wins: 0, losses: 0, ties: 0 });
-        });
+        console.error("Error fetching games for team records:", error);
         return recordsMap;
     }
 
-    // Build the map from query results
-    (data || []).forEach((row) => {
-        const team = row.abbreviation as NFLTeam;
-        recordsMap.set(team, {
-            wins: row.wins ?? 0,
-            losses: row.losses ?? 0,
-            ties: row.ties ?? 0,
-        });
-    });
+    // Calculate records from completed games
+    (games || []).forEach((game) => {
+        const homeTeam = game.home_team as NFLTeam;
+        const awayTeam = game.away_team as NFLTeam;
+        const homeScore = game.home_score ?? 0;
+        const awayScore = game.away_score ?? 0;
 
-    // Ensure all requested teams have an entry (default to 0-0-0 if not found)
-    teams.forEach((team) => {
-        if (!recordsMap.has(team)) {
-            recordsMap.set(team, { wins: 0, losses: 0, ties: 0 });
+        // Only process if we're tracking one of these teams
+        const trackHome = recordsMap.has(homeTeam);
+        const trackAway = recordsMap.has(awayTeam);
+
+        if (!trackHome && !trackAway) return;
+
+        // Determine outcome
+        if (homeScore > awayScore) {
+            // Home team won
+            if (trackHome) {
+                const record = recordsMap.get(homeTeam)!;
+                record.wins++;
+            }
+            if (trackAway) {
+                const record = recordsMap.get(awayTeam)!;
+                record.losses++;
+            }
+        } else if (awayScore > homeScore) {
+            // Away team won
+            if (trackAway) {
+                const record = recordsMap.get(awayTeam)!;
+                record.wins++;
+            }
+            if (trackHome) {
+                const record = recordsMap.get(homeTeam)!;
+                record.losses++;
+            }
+        } else {
+            // Tie
+            if (trackHome) {
+                const record = recordsMap.get(homeTeam)!;
+                record.ties++;
+            }
+            if (trackAway) {
+                const record = recordsMap.get(awayTeam)!;
+                record.ties++;
+            }
         }
     });
 
@@ -642,7 +683,7 @@ export async function getTeamRecords(
  */
 export async function getTeamPlayers(
     team: NFLTeam,
-    season: number = 2024
+    season: number = getCurrentSeason()
 ): Promise<Player[]> {
     const supabase = createServerClient();
 
@@ -674,7 +715,7 @@ export async function getTeamPlayers(
  */
 export async function getTeamPlayersWithStats(
     team: NFLTeam,
-    season: number = 2024
+    season: number = getCurrentSeason()
 ): Promise<PlayerWithSeasonStats[]> {
     const supabase = createServerClient();
 
