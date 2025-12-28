@@ -80,6 +80,26 @@ function formatRecord(record: TeamRecord | undefined): string {
     return `${wins}-${losses}`;
 }
 
+/** Average NFL game duration in milliseconds (3.5 hours) */
+const NFL_GAME_DURATION_MS = 3.5 * 60 * 60 * 1000;
+
+/**
+ * Check if a game is currently live based on start time
+ * A game is considered live if:
+ * - Current time is after the game start time
+ * - Current time is within the expected game duration (3.5 hours)
+ *
+ * @param gameDate - ISO date string of game start time
+ * @returns true if the game is likely in progress
+ */
+function isGameLive(gameDate: string): boolean {
+    const now = new Date();
+    const gameStart = new Date(gameDate);
+    const gameEnd = new Date(gameStart.getTime() + NFL_GAME_DURATION_MS);
+
+    return now >= gameStart && now <= gameEnd;
+}
+
 /**
  * UpcomingMatchCard component
  *
@@ -106,6 +126,7 @@ export function UpcomingMatchCard({
     const homeTeamName = getTeamName(game.homeTeam);
     const awayRecord = teamRecords?.get(game.awayTeam);
     const homeRecord = teamRecords?.get(game.homeTeam);
+    const isLive = isGameLive(game.gameDate);
 
     return (
         <Link href={`/nfl/matchup/${game.id}`}>
@@ -134,9 +155,22 @@ export function UpcomingMatchCard({
 
                         {/* Center: Date and time info - fixed width */}
                         <div className="w-[30%] flex flex-col items-center px-1">
-                            <div className="text-xs sm:text-sm font-medium text-foreground">
-                                {date}
-                            </div>
+                            {/* LIVE tag when game is in progress */}
+                            {isLive ? (
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                                    </span>
+                                    <span className="text-[10px] sm:text-xs font-bold text-red-500 uppercase tracking-wide">
+                                        Live
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="text-xs sm:text-sm font-medium text-foreground">
+                                    {date}
+                                </div>
+                            )}
                             <div className="flex flex-col items-center gap-0.5 mt-1">
                                 <div className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
                                     <span className="font-medium">{pacificTime}</span>
