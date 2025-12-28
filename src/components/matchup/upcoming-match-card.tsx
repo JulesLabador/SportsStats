@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import type { NFLGame, NFLTeam } from "@/lib/types";
+import type { NFLGame, NFLTeam, TeamRecord } from "@/lib/types";
 import { getTeamName, getTeamColor } from "@/lib/team-colors";
 import { cn } from "@/lib/utils";
 
@@ -11,18 +10,24 @@ import { cn } from "@/lib/utils";
 interface UpcomingMatchCardProps {
     /** The game data to display */
     game: NFLGame;
+    /** Map of team abbreviations to their records */
+    teamRecords?: Map<NFLTeam, TeamRecord>;
     /** Additional CSS classes */
     className?: string;
 }
 
 /**
- * Format a game date for display
- * Shows day of week, month/day, and time
+ * Format a game date for display in multiple time zones
+ * Shows date, Pacific time, and Eastern time
  *
  * @param dateString - ISO date string
- * @returns Formatted date string
+ * @returns Object with formatted date and times
  */
-function formatGameDate(dateString: string): { date: string; time: string } {
+function formatGameDateTime(dateString: string): {
+    date: string;
+    pacificTime: string;
+    easternTime: string;
+} {
     const date = new Date(dateString);
 
     // Format: "Sun, Dec 29"
@@ -32,14 +37,23 @@ function formatGameDate(dateString: string): { date: string; time: string } {
         day: "numeric",
     });
 
-    // Format: "1:00 PM"
-    const timeFormatted = date.toLocaleTimeString("en-US", {
+    // Pacific Time (PT)
+    const pacificTime = date.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
+        timeZone: "America/Los_Angeles",
     });
 
-    return { date: dateFormatted, time: timeFormatted };
+    // Eastern Time (ET)
+    const easternTime = date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "America/New_York",
+    });
+
+    return { date: dateFormatted, pacificTime, easternTime };
 }
 
 /**
@@ -53,95 +67,106 @@ function getTeamTextColor(team: NFLTeam): string {
 }
 
 /**
+ * Format a team record as a string (e.g., "10-4" or "10-4-1")
+ * @param record - The team&apos;s win/loss/tie record
+ * @returns Formatted record string
+ */
+function formatRecord(record: TeamRecord | undefined): string {
+    if (!record) return "";
+    const { wins, losses, ties } = record;
+    if (ties > 0) {
+        return `${wins}-${losses}-${ties}`;
+    }
+    return `${wins}-${losses}`;
+}
+
+/**
  * UpcomingMatchCard component
  *
- * Displays an upcoming NFL game in a horizontal layout with:
- * - Full team names in medium/large format
- * - Game date, time, and week
- * - Venue information
+ * Mobile-optimized card displaying an upcoming NFL game with:
+ * - Away team on the left edge with their record
+ * - Date and time (PT/ET) in the center
+ * - Home team on the right edge with their record
  * - Click to navigate to matchup page
  *
- * Uses full-width single-column layout to differentiate from PlayerCard.
+ * Week information is displayed in a section header above the cards.
  *
  * @example
  * ```tsx
- * <UpcomingMatchCard game={game} />
+ * <UpcomingMatchCard game={game} teamRecords={recordsMap} />
  * ```
  */
-export function UpcomingMatchCard({ game, className }: UpcomingMatchCardProps) {
-    const { date, time } = formatGameDate(game.gameDate);
+export function UpcomingMatchCard({
+    game,
+    teamRecords,
+    className,
+}: UpcomingMatchCardProps) {
+    const { date, pacificTime, easternTime } = formatGameDateTime(game.gameDate);
     const awayTeamName = getTeamName(game.awayTeam);
     const homeTeamName = getTeamName(game.homeTeam);
+    const awayRecord = teamRecords?.get(game.awayTeam);
+    const homeRecord = teamRecords?.get(game.homeTeam);
 
     return (
-        <Link href={`/matchup/${game.id}`}>
+        <Link href={`/nfl/matchup/${game.id}`}>
             <Card
                 className={cn(
                     "group cursor-pointer transition-all hover:bg-card/80 hover:border-border/80",
                     className
                 )}
             >
-                <CardContent className="p-4 sm:p-5">
-                    <div className="flex items-center gap-4">
-                        {/* Week badge */}
-                        <Badge
-                            variant="outline"
-                            className="shrink-0 text-xs font-medium"
-                        >
-                            Wk {game.week}
-                        </Badge>
-
-                        <div className="flex-1">
-                            {/* Teams matchup - full names */}
-                            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                                {/* Away team */}
-                                <span
-                                    className={cn(
-                                        "font-semibold text-sm sm:text-base truncate",
-                                        getTeamTextColor(game.awayTeam)
-                                    )}
-                                >
-                                    {awayTeamName}
-                                </span>
-
-                                {/* @ symbol */}
-                                <span className="text-sm text-muted-foreground shrink-0">
-                                    @
-                                </span>
-
-                                {/* Home team */}
-                                <span
-                                    className={cn(
-                                        "font-semibold text-sm sm:text-base truncate",
-                                        getTeamTextColor(game.homeTeam)
-                                    )}
-                                >
-                                    {homeTeamName}
-                                </span>
+                <CardContent className="p-3 sm:p-4">
+                    <div className="flex items-center gap-2">
+                        {/* Away team (left side) - fixed width */}
+                        <div className="w-[30%] min-w-0 text-left">
+                            <div
+                                className={cn(
+                                    "font-semibold text-sm sm:text-base line-clamp-2 leading-tight",
+                                    getTeamTextColor(game.awayTeam)
+                                )}
+                            >
+                                {awayTeamName}
                             </div>
-
-                            {/* Venue (shown on larger screens) */}
-                            {game.venue && (
-                                <div className="hidden sm:block text-sm text-muted-foreground">
-                                    {game.venue.name}
-                                    {game.venue.city &&
-                                        game.venue.state &&
-                                        ` • ${game.venue.city}, ${game.venue.state}`}
-                                </div>
-                            )}
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                                {formatRecord(awayRecord)}
+                            </div>
                         </div>
 
-                        {/* Date and time */}
-                        <div className="text-right shrink-0 ">
-                            <div className="text-sm font-medium">{date}</div>
-                            <div className="text-xs text-muted-foreground">
-                                {time}
+                        {/* Center: Date and time info - fixed width */}
+                        <div className="w-[30%] flex flex-col items-center px-1">
+                            <div className="text-xs sm:text-sm font-medium text-foreground">
+                                {date}
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <div className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                                    <span className="font-medium">{pacificTime}</span>
+                                    <span className="ml-1 text-muted-foreground/60">PT</span>
+                                </div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
+                                    <span className="font-medium">{easternTime}</span>
+                                    <span className="ml-1 text-muted-foreground/60">ET</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Home team (right side) - fixed width */}
+                        <div className="w-[30%] min-w-0 text-right">
+                            <div
+                                className={cn(
+                                    "font-semibold text-sm sm:text-base line-clamp-2 leading-tight",
+                                    getTeamTextColor(game.homeTeam)
+                                )}
+                            >
+                                {homeTeamName}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                                {formatRecord(homeRecord)}
                             </div>
                         </div>
 
                         {/* Arrow indicator */}
                         <svg
-                            className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
+                            className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-1"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -166,19 +191,29 @@ export function UpcomingMatchCard({ game, className }: UpcomingMatchCardProps) {
 export function UpcomingMatchCardSkeleton() {
     return (
         <Card>
-            <CardContent className="p-4 sm:p-5">
-                <div className="flex items-center gap-4">
-                    <div className="h-5 w-12 bg-muted rounded animate-pulse shrink-0" />
-                    <div className="flex items-center gap-3 flex-1">
-                        <div className="h-5 w-32 bg-muted rounded animate-pulse" />
-                        <div className="h-4 w-4 bg-muted rounded animate-pulse" />
-                        <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+            <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-2">
+                    {/* Away team skeleton */}
+                    <div className="flex-1 min-w-0">
+                        <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+                        <div className="h-3 w-12 bg-muted rounded animate-pulse mt-1" />
                     </div>
-                    <div className="text-right shrink-0">
-                        <div className="h-4 w-20 bg-muted rounded animate-pulse mb-1" />
-                        <div className="h-3 w-14 bg-muted rounded animate-pulse" />
+
+                    {/* Center skeleton */}
+                    <div className="flex flex-col items-center shrink-0 px-4">
+                        <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                        <div className="h-3 w-16 bg-muted rounded animate-pulse mt-1" />
+                        <div className="h-3 w-16 bg-muted rounded animate-pulse mt-0.5" />
                     </div>
-                    <div className="h-5 w-5 bg-muted rounded animate-pulse shrink-0" />
+
+                    {/* Home team skeleton */}
+                    <div className="flex-1 min-w-0 flex flex-col items-end">
+                        <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+                        <div className="h-3 w-12 bg-muted rounded animate-pulse mt-1" />
+                    </div>
+
+                    {/* Arrow skeleton */}
+                    <div className="h-5 w-5 bg-muted rounded animate-pulse shrink-0 ml-1" />
                 </div>
             </CardContent>
         </Card>
