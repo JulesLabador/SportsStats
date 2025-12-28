@@ -433,11 +433,17 @@ function calculateSeasonSummary(
 export async function getUpcomingGames(limit: number = 10): Promise<NFLGame[]> {
     const supabase = createServerClient();
 
+    // Include games that started within the last 3.5 hours (still potentially live)
+    // This allows the LIVE tag to show for games currently in progress
+    const liveGameCutoff = new Date(
+        Date.now() - 3.5 * 60 * 60 * 1000
+    ).toISOString();
+
     const { data, error } = await supabase
         .from("nfl_games")
         .select("*")
         .eq("status", "scheduled")
-        .gte("game_date", new Date().toISOString())
+        .gte("game_date", liveGameCutoff)
         .order("game_date", { ascending: true })
         .limit(limit);
 
