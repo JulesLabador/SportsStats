@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cursor
+./cursor/*
+
+# scripts
+scripts/etl-state.json
+
+# supabase
+supabase/.temp/*
