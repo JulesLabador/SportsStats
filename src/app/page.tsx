@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchWrapper } from "@/components/search/search-wrapper";
-import { getFeaturedPlayers, getUpcomingGames } from "@/lib/data";
+import { getFeaturedPlayers, getUpcomingGames, getTeamRecords } from "@/lib/data";
 import { getTeamColor, getPositionColor } from "@/lib/team-colors";
 import { cn } from "@/lib/utils";
-import type { Player } from "@/lib/types";
+import type { Player, NFLGame, NFLTeam, TeamRecord } from "@/lib/types";
 import { TeamBadge } from "@/components/player/team-badge";
 import { PositionBadge } from "@/components/player/position-badge";
 import { UpcomingMatchCard } from "@/components/matchup/upcoming-match-card";
@@ -42,12 +42,50 @@ export const metadata: Metadata = {
  * - Upcoming matches section
  * - Static hero section and footer
  */
+/**
+ * Group games by week number for section display
+ * @param games - Array of NFL games
+ * @returns Map of week number to games in that week
+ */
+function groupGamesByWeek(games: NFLGame[]): Map<number, NFLGame[]> {
+    const grouped = new Map<number, NFLGame[]>();
+
+    games.forEach((game) => {
+        const existing = grouped.get(game.week) || [];
+        existing.push(game);
+        grouped.set(game.week, existing);
+    });
+
+    return grouped;
+}
+
+/**
+ * Extract unique teams from games for record fetching
+ * @param games - Array of NFL games
+ * @returns Array of unique team abbreviations
+ */
+function getUniqueTeams(games: NFLGame[]): NFLTeam[] {
+    const teams = new Set<NFLTeam>();
+    games.forEach((game) => {
+        teams.add(game.homeTeam);
+        teams.add(game.awayTeam);
+    });
+    return Array.from(teams);
+}
+
 export default async function HomePage() {
     // Fetch data server-side for SEO
     const [featuredPlayers, upcomingGames] = await Promise.all([
         getFeaturedPlayers(),
-        getUpcomingGames(6),
+        getUpcomingGames(12),
     ]);
+
+    // Get unique teams from upcoming games and fetch their records
+    const uniqueTeams = getUniqueTeams(upcomingGames);
+    const teamRecords = await getTeamRecords(uniqueTeams);
+
+    // Group games by week for section headers
+    const gamesByWeek = groupGamesByWeek(upcomingGames);
 
     return (
         <main className="min-h-screen">
@@ -93,10 +131,32 @@ export default async function HomePage() {
                         </p>
                     </div>
                 ) : (
-                    // Games list (single column, full width)
-                    <div className="flex flex-col gap-3">
-                        {upcomingGames.map((game) => (
-                            <UpcomingMatchCard key={game.id} game={game} />
+                    // Games grouped by week
+                    <div className="flex flex-col gap-6">
+                        {Array.from(gamesByWeek.entries()).map(([week, games]) => (
+                            <div key={week}>
+                                {/* Week section header */}
+                                <div className="flex items-center gap-3 mb-3">
+                                    <Badge
+                                        variant="outline"
+                                        className="text-xs font-semibold px-3 py-1"
+                                    >
+                                        Week {week}
+                                    </Badge>
+                                    <div className="flex-1 h-px bg-border" />
+                                </div>
+
+                                {/* Games in this week */}
+                                <div className="flex flex-col gap-2">
+                                    {games.map((game) => (
+                                        <UpcomingMatchCard
+                                            key={game.id}
+                                            game={game}
+                                            teamRecords={teamRecords}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -157,7 +217,7 @@ function PlayerCard({ player }: PlayerCardProps) {
     const positionColor = getPositionColor(player.position);
 
     return (
-        <a href={`/player/${player.id}`}>
+        <a href={`/nfl/player/${player.id}`}>
             <Card className="group cursor-pointer transition-colors hover:bg-card/80">
                 <CardContent className="p-4">
                     <div className="flex items-center gap-4">
