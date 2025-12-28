@@ -5,7 +5,11 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PositionBadge } from "@/components/player/position-badge";
-import type { NFLTeam, PlayerPosition, PlayerWithSeasonStats } from "@/lib/types";
+import type {
+    NFLTeam,
+    PlayerPosition,
+    PlayerWithSeasonStats,
+} from "@/lib/types";
 import { getTeamFullName } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -90,12 +94,18 @@ const POSITION_ORDER: { position: PlayerPosition; label: string }[] = [
 function getPrimaryStatLabel(player: PlayerWithSeasonStats): string {
     switch (player.position) {
         case "QB":
-            return `${player.passingYards.toLocaleString()} pass yds, ${player.passingTDs} TD`;
+            return `${player.passingYards.toLocaleString()} pass yds, ${
+                player.passingTDs
+            } TD`;
         case "RB":
-            return `${player.rushingYards.toLocaleString()} rush yds, ${player.rushingTDs} TD`;
+            return `${player.rushingYards.toLocaleString()} rush yds, ${
+                player.rushingTDs
+            } TD`;
         case "WR":
         case "TE":
-            return `${player.receivingYards.toLocaleString()} rec yds, ${player.receivingTDs} TD`;
+            return `${player.receivingYards.toLocaleString()} rec yds, ${
+                player.receivingTDs
+            } TD`;
         default:
             return "";
     }
@@ -132,11 +142,16 @@ export function TeamRosterTable({
 
     // Sort players by performance score (descending)
     const sortedByPerformance = useMemo(() => {
-        return [...players].sort((a, b) => b.performanceScore - a.performanceScore);
+        return [...players].sort(
+            (a, b) => b.performanceScore - a.performanceScore
+        );
     }, [players]);
 
     // Group players by position
-    const groupedPlayers = useMemo(() => groupPlayersByPosition(players), [players]);
+    const groupedPlayers = useMemo(
+        () => groupPlayersByPosition(players),
+        [players]
+    );
 
     // Get flattened list based on sort mode
     const flattenedPlayers = useMemo(() => {
@@ -174,7 +189,9 @@ export function TeamRosterTable({
      * Toggle sort mode between position and performance
      */
     const handleSortToggle = () => {
-        setSortMode((prev) => (prev === "position" ? "performance" : "position"));
+        setSortMode((prev) =>
+            prev === "position" ? "performance" : "position"
+        );
         // Reset to collapsed when switching modes
         setIsExpanded(false);
     };
@@ -196,18 +213,26 @@ export function TeamRosterTable({
                 {/* Sort toggle */}
                 <div className="flex items-center gap-2 mt-2">
                     <Button
-                        variant={sortMode === "performance" ? "default" : "outline"}
+                        variant={
+                            sortMode === "performance" ? "default" : "outline"
+                        }
                         size="sm"
-                        onClick={() => sortMode !== "performance" && handleSortToggle()}
+                        onClick={() =>
+                            sortMode !== "performance" && handleSortToggle()
+                        }
                         className="text-xs h-7 px-2"
                     >
                         <TrophyIcon className="w-3 h-3 mr-1" />
                         Top Performers
                     </Button>
                     <Button
-                        variant={sortMode === "position" ? "default" : "outline"}
+                        variant={
+                            sortMode === "position" ? "default" : "outline"
+                        }
                         size="sm"
-                        onClick={() => sortMode !== "position" && handleSortToggle()}
+                        onClick={() =>
+                            sortMode !== "position" && handleSortToggle()
+                        }
                         className="text-xs h-7 px-2"
                     >
                         <GridIcon className="w-3 h-3 mr-1" />
@@ -259,18 +284,22 @@ export function TeamRosterTable({
                         {POSITION_ORDER.map(({ position, label }) => {
                             const positionPlayers = groupedPlayers[position];
                             // Filter to only visible players for this position
-                            const visiblePositionPlayers = positionPlayers.filter(
-                                (player) => visiblePlayerIds.has(player.id)
-                            );
+                            const visiblePositionPlayers =
+                                positionPlayers.filter((player) =>
+                                    visiblePlayerIds.has(player.id)
+                                );
 
                             // Skip position group if no visible players
-                            if (visiblePositionPlayers.length === 0) return null;
+                            if (visiblePositionPlayers.length === 0)
+                                return null;
 
                             return (
                                 <div key={position}>
                                     {/* Position header */}
                                     <div className="flex items-center gap-2 mb-1">
-                                        <PositionBadge playerPosition={position} />
+                                        <PositionBadge
+                                            playerPosition={position}
+                                        />
                                         <span className="text-sm text-muted-foreground">
                                             {label} ({positionPlayers.length})
                                         </span>
@@ -278,9 +307,14 @@ export function TeamRosterTable({
 
                                     {/* Players list */}
                                     <div className="space-y-1">
-                                        {visiblePositionPlayers.map((player) => (
-                                            <PlayerRow key={player.id} player={player} />
-                                        ))}
+                                        {visiblePositionPlayers.map(
+                                            (player) => (
+                                                <PlayerRow
+                                                    key={player.id}
+                                                    player={player}
+                                                />
+                                            )
+                                        )}
                                     </div>
                                 </div>
                             );
