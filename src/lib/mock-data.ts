@@ -298,18 +298,26 @@ function calculateSeasonSummary(
 }
 
 /**
+ * Get the current NFL season year
+ */
+function getCurrentSeason(): number {
+    return new Date().getFullYear();
+}
+
+/**
  * Get full player data with stats
  */
 export function getPlayerWithStats(
     playerId: string,
-    season: number = 2024
+    season: number = getCurrentSeason()
 ): PlayerWithStats | undefined {
     const player = mockPlayers.find((p) => p.id === playerId);
     if (!player) return undefined;
 
     // Use seeded random for consistent data per player/season
     const seed = playerId.length + season;
-    const weeksPlayed = season === 2024 ? 15 : 17; // Current season has fewer games
+    const currentYear = getCurrentSeason();
+    const weeksPlayed = season === currentYear ? 15 : 17; // Current season has fewer games
 
     const weeklyStats = generateWeeklyStats(player, season, weeksPlayed);
     const seasonSummary = calculateSeasonSummary(weeklyStats, season);
