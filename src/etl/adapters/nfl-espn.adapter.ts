@@ -302,6 +302,9 @@ export class NFLESPNAdapter extends NFLBaseAdapter {
 
     /**
      * Fetch player profiles from ESPN
+     *
+     * Iterates through all players and fetches detailed athlete data.
+     * Logs progress every 50 players to provide visibility during long runs.
      */
     async fetchPlayerProfiles(
         options: AdapterFetchOptions
@@ -310,8 +313,22 @@ export class NFLESPNAdapter extends NFLBaseAdapter {
 
         // Get players first
         const players = await this.fetchPlayers(options);
+        const totalPlayers = players.length;
 
-        for (const player of players) {
+        log.info(
+            { totalPlayers },
+            "Starting player profile fetch - this may take a while"
+        );
+
+        // Track progress for logging
+        const progressInterval = 50;
+        let successCount = 0;
+        let errorCount = 0;
+        const startTime = Date.now();
+
+        for (let i = 0; i < players.length; i++) {
+            const player = players[i];
+
             try {
                 const athleteData = await this.fetchAthleteDetail(
                     player.externalId
@@ -331,6 +348,7 @@ export class NFLESPNAdapter extends NFLBaseAdapter {
                             draft_pick: athleteData.athlete.draft?.selection,
                         },
                     });
+                    successCount++;
                 }
             } catch (error) {
                 // Create basic profile if detail fetch fails
@@ -340,8 +358,37 @@ export class NFLESPNAdapter extends NFLBaseAdapter {
                     position: "QB", // Default, will be updated
                     metadata: {},
                 });
+                errorCount++;
+            }
+
+            // Log progress every N players
+            const processed = i + 1;
+            if (processed % progressInterval === 0 || processed === totalPlayers) {
+                const elapsedMs = Date.now() - startTime;
+                const avgMsPerPlayer = elapsedMs / processed;
+                const remainingPlayers = totalPlayers - processed;
+                const estimatedRemainingMs = remainingPlayers * avgMsPerPlayer;
+                const estimatedRemainingMins = Math.ceil(estimatedRemainingMs / 60000);
+
+                log.info(
+                    {
+                        progress: `${processed}/${totalPlayers}`,
+                        percentComplete: Math.round((processed / totalPlayers) * 100),
+                        successCount,
+                        errorCount,
+                        elapsedSecs: Math.round(elapsedMs / 1000),
+                        estimatedRemainingMins: processed < totalPlayers ? estimatedRemainingMins : 0,
+                    },
+                    `Player profiles: ${processed}/${totalPlayers} (${Math.round((processed / totalPlayers) * 100)}%)`
+                );
             }
         }
+
+        const totalElapsedSecs = Math.round((Date.now() - startTime) / 1000);
+        log.info(
+            { totalPlayers, successCount, errorCount, totalElapsedSecs },
+            "Completed player profile fetch"
+        );
 
         return profiles;
     }
