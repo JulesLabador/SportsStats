@@ -221,8 +221,6 @@ interface PlayerCardProps {
 
 function PlayerCard({ player }: PlayerCardProps) {
     // Get team and position colors for badges
-    const teamColor = getTeamColor(player.team);
-    const positionColor = getPositionColor(player.position);
 
     return (
         <a href={`/nfl/player/${player.id}`}>
