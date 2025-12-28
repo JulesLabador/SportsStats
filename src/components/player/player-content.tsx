@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/ui/back-button";
 import { SearchWrapper } from "@/components/search/search-wrapper";
 import { PlayerHeader } from "./player-header";
 import { StatSummary } from "./stat-summary";
@@ -101,29 +102,8 @@ export function PlayerContent({
             {/* Search bar for quick player navigation */}
             <SearchWrapper className="mb-6" />
 
-            {/* Back button */}
-            <Link href="/">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mb-6 hover:cursor-pointer"
-                >
-                    <svg
-                        className="w-4 h-4 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 19l-7-7 7-7"
-                        />
-                    </svg>
-                    Back
-                </Button>
-            </Link>
+            {/* Back button - uses browser history for proper navigation */}
+            <BackButton className="mb-6" />
 
             {/* Player header with season selector */}
             <PlayerHeader
@@ -184,24 +164,7 @@ export function PlayerContent({
 export function PlayerNotFound() {
     return (
         <div className="max-w-4xl mx-auto px-4 py-6">
-            <Link href="/">
-                <Button variant="ghost" size="sm" className="mb-6 -ml-2">
-                    <svg
-                        className="w-4 h-4 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 19l-7-7 7-7"
-                        />
-                    </svg>
-                    Back
-                </Button>
-            </Link>
+            <BackButton className="mb-6 -ml-2" />
 
             <div className="text-center py-16">
                 <h1 className="text-2xl font-bold mb-2">Player Not Found</h1>
