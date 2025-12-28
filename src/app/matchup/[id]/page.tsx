@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SearchWrapper } from "@/components/search/search-wrapper";
 import { MatchupHeader } from "@/components/matchup/matchup-header";
 import { TeamRosterTable } from "@/components/matchup/team-roster-table";
-import { getGameById, getTeamPlayers } from "@/lib/data";
+import { getGameById, getTeamPlayersWithStats } from "@/lib/data";
 import { getTeamFullName } from "@/lib/types";
 
 /**
@@ -70,10 +70,10 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
         notFound();
     }
 
-    // Fetch rosters for both teams
+    // Fetch rosters with stats for both teams
     const [homeRoster, awayRoster] = await Promise.all([
-        getTeamPlayers(game.homeTeam, game.season),
-        getTeamPlayers(game.awayTeam, game.season),
+        getTeamPlayersWithStats(game.homeTeam, game.season),
+        getTeamPlayersWithStats(game.awayTeam, game.season),
     ]);
 
     return (
