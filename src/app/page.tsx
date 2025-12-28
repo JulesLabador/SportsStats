@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchWrapper } from "@/components/search/search-wrapper";
-import { getFeaturedPlayers, getUpcomingGames, getTeamRecords } from "@/lib/data";
+import {
+    getFeaturedPlayers,
+    getUpcomingGames,
+    getTeamRecords,
+} from "@/lib/data";
 import { getTeamColor, getPositionColor } from "@/lib/team-colors";
 import { cn } from "@/lib/utils";
 import type { Player, NFLGame, NFLTeam, TeamRecord } from "@/lib/types";
@@ -81,8 +85,10 @@ export default async function HomePage() {
     ]);
 
     // Get unique teams from upcoming games and fetch their records
+    // Use the season from the first game (all games should be same season)
     const uniqueTeams = getUniqueTeams(upcomingGames);
-    const teamRecords = await getTeamRecords(uniqueTeams);
+    const currentSeason = upcomingGames[0]?.season ?? new Date().getFullYear();
+    const teamRecords = await getTeamRecords(uniqueTeams, currentSeason);
 
     // Group games by week for section headers
     const gamesByWeek = groupGamesByWeek(upcomingGames);
@@ -133,31 +139,33 @@ export default async function HomePage() {
                 ) : (
                     // Games grouped by week
                     <div className="flex flex-col gap-6">
-                        {Array.from(gamesByWeek.entries()).map(([week, games]) => (
-                            <div key={week}>
-                                {/* Week section header */}
-                                <div className="flex items-center gap-3 mb-3">
-                                    <Badge
-                                        variant="outline"
-                                        className="text-xs font-semibold px-3 py-1"
-                                    >
-                                        Week {week}
-                                    </Badge>
-                                    <div className="flex-1 h-px bg-border" />
-                                </div>
+                        {Array.from(gamesByWeek.entries()).map(
+                            ([week, games]) => (
+                                <div key={week}>
+                                    {/* Week section header */}
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <Badge
+                                            variant="outline"
+                                            className="text-xs font-semibold px-3 py-1"
+                                        >
+                                            Week {week}
+                                        </Badge>
+                                        <div className="flex-1 h-px bg-border" />
+                                    </div>
 
-                                {/* Games in this week */}
-                                <div className="flex flex-col gap-2">
-                                    {games.map((game) => (
-                                        <UpcomingMatchCard
-                                            key={game.id}
-                                            game={game}
-                                            teamRecords={teamRecords}
-                                        />
-                                    ))}
+                                    {/* Games in this week */}
+                                    <div className="flex flex-col gap-2">
+                                        {games.map((game) => (
+                                            <UpcomingMatchCard
+                                                key={game.id}
+                                                game={game}
+                                                teamRecords={teamRecords}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        )}
                     </div>
                 )}
             </section>
