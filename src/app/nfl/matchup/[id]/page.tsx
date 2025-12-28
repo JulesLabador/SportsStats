@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { SearchWrapper } from "@/components/search/search-wrapper";
 import { MatchupHeader } from "@/components/matchup/matchup-header";
 import { TeamRosterTable } from "@/components/matchup/team-roster-table";
-import { getGameById, getTeamPlayers } from "@/lib/data";
+import { MatchupHistorySection } from "@/components/matchup/matchup-history-section";
+import { getGameById, getTeamPlayers, getHeadToHeadHistory } from "@/lib/data";
 import { getTeamFullName } from "@/lib/types";
 
 /**
@@ -55,6 +56,7 @@ export async function generateMetadata({
  *
  * Displays:
  * - Game header with teams, score (if available), date/time, venue
+ * - Head-to-head history section with statistics and game history
  * - Two-column layout with team rosters
  * - Player links to individual player pages
  * - Team links to team pages
@@ -70,11 +72,15 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
         notFound();
     }
 
-    // Fetch rosters for both teams
-    const [homeRoster, awayRoster] = await Promise.all([
-        getTeamPlayers(game.homeTeam, game.season),
-        getTeamPlayers(game.awayTeam, game.season),
-    ]);
+    // Fetch rosters and head-to-head history in parallel
+    // Away team is team1, home team is team2 for consistency
+    const [homeRoster, awayRoster, recentHistory, allTimeHistory] =
+        await Promise.all([
+            getTeamPlayers(game.homeTeam, game.season),
+            getTeamPlayers(game.awayTeam, game.season),
+            getHeadToHeadHistory(game.awayTeam, game.homeTeam, 5), // Last 5 seasons
+            getHeadToHeadHistory(game.awayTeam, game.homeTeam, null), // All-time
+        ]);
 
     return (
         <main className="min-h-screen pb-16">
@@ -108,6 +114,13 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
 
                 {/* Matchup header */}
                 <MatchupHeader game={game} className="mb-10" />
+
+                {/* Head-to-head history section */}
+                <MatchupHistorySection
+                    stats={recentHistory}
+                    allTimeStats={allTimeHistory}
+                    className="mb-10"
+                />
 
                 {/* Team rosters - two column layout */}
                 <section>
