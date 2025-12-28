@@ -653,5 +653,100 @@ src/etl/
 
 ---
 
-*Last updated: December 26, 2024*
+## 15. Historical Matchup Statistics Feature
+
+### Historical Data Source
+**Decision**: Query historical games between two teams from the existing `nfl_games` table.
+
+**Reasoning**:
+- Games are already stored in the database via ETL
+- No additional API calls needed at request time
+- Consistent with existing data access patterns
+- Fast queries using existing indexes
+
+### Statistics Provided
+**Decision**: Show comprehensive head-to-head statistics that NFL fans care about.
+
+**Statistics included**:
+- Overall record (W-L-T)
+- Win percentage
+- Average points scored per game
+- Total points scored in the series
+- Point differential
+- Current win/loss streak
+- Highest scoring win for each team
+- Highest scoring loss for each team
+- Largest blowout for each team
+- Highest combined scoring game
+- Closest game (smallest margin)
+- Lowest scoring game (defensive battle)
+- Last 5 meetings
+
+**Reasoning**:
+- Answers common fan questions about rivalry history
+- Helps bettors understand historical trends
+- Provides context for upcoming matchups
+- Shows both dominance indicators and notable games
+
+### Type Architecture
+**Decision**: Create dedicated types for historical matchup data.
+
+**Types**:
+```typescript
+interface HistoricalGame // Single game record
+interface TeamMatchupStats // Team-specific stats in a matchup
+interface HistoricalMatchupStats // Complete matchup data
+```
+
+**Reasoning**:
+- Clear separation from existing NFLGame type
+- Type-safe access to all computed statistics
+- Reusable across components
+- Self-documenting structure
+
+### Component Architecture
+**Decision**: Single comprehensive component with sub-components.
+
+**Structure**:
+- `HistoricalMatchupStats` - Main component
+  - `StatRow` - Individual stat comparison row
+  - `NotableGame` - Notable game card
+  - `RecentGamesList` - Recent meetings list
+
+**Reasoning**:
+- Encapsulates all historical matchup display logic
+- Sub-components keep code organized
+- Easy to customize layout per section
+- Follows existing component patterns
+
+### Data Fetching Strategy
+**Decision**: Fetch historical data in parallel with other matchup data.
+
+**Implementation**:
+```typescript
+const [homeRoster, awayRoster, historicalStats] = await Promise.all([
+    getTeamPlayers(game.homeTeam, game.season),
+    getTeamPlayers(game.awayTeam, game.season),
+    getHistoricalMatchupStats(game.awayTeam, game.homeTeam),
+]);
+```
+
+**Reasoning**:
+- Parallel fetching minimizes page load time
+- Server-side data fetching for SEO
+- No additional round-trips to client
+- Consistent with existing matchup page pattern
+
+### Empty State Handling
+**Decision**: Show informative message when no historical data exists.
+
+**Reasoning**:
+- Some team combinations may have no history
+- Clear communication to users
+- Prevents confusing empty UI
+- Graceful degradation
+
+---
+
+*Last updated: December 27, 2024*
 

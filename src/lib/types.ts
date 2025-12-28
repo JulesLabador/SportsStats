@@ -320,3 +320,87 @@ export const NFL_TEAM_NAMES: Record<NFLTeam, string> = {
 export function getTeamFullName(team: NFLTeam): string {
     return NFL_TEAM_NAMES[team] ?? team;
 }
+
+// ============================================================================
+// HISTORICAL MATCHUP TYPES
+// ============================================================================
+
+/**
+ * A single historical game result between two teams
+ */
+export interface HistoricalGame {
+    /** Game database ID */
+    id: string;
+    /** Season year */
+    season: number;
+    /** Week number */
+    week: number;
+    /** Game date (ISO string) */
+    gameDate: string;
+    /** Home team abbreviation */
+    homeTeam: NFLTeam;
+    /** Away team abbreviation */
+    awayTeam: NFLTeam;
+    /** Home team score */
+    homeScore: number;
+    /** Away team score */
+    awayScore: number;
+    /** Venue name */
+    venue?: string;
+}
+
+/**
+ * Team-specific stats in a historical matchup
+ */
+export interface TeamMatchupStats {
+    /** Team abbreviation */
+    team: NFLTeam;
+    /** Total wins in the matchup */
+    wins: number;
+    /** Total losses in the matchup */
+    losses: number;
+    /** Total ties in the matchup */
+    ties: number;
+    /** Total points scored across all games */
+    totalPointsScored: number;
+    /** Total points allowed across all games */
+    totalPointsAllowed: number;
+    /** Average points scored per game */
+    avgPointsScored: number;
+    /** Average points allowed per game */
+    avgPointsAllowed: number;
+    /** Highest scoring win (most points scored in a victory) */
+    highestScoringWin: HistoricalGame | null;
+    /** Highest scoring loss (most points scored in a defeat) */
+    highestScoringLoss: HistoricalGame | null;
+    /** Largest margin of victory */
+    largestVictory: HistoricalGame | null;
+    /** Current streak (positive = winning streak, negative = losing streak) */
+    currentStreak: number;
+}
+
+/**
+ * Complete historical matchup statistics between two teams
+ */
+export interface HistoricalMatchupStats {
+    /** Team 1 (typically the away team in the current matchup) */
+    team1: NFLTeam;
+    /** Team 2 (typically the home team in the current matchup) */
+    team2: NFLTeam;
+    /** Total games played between these teams */
+    totalGames: number;
+    /** Team 1 stats */
+    team1Stats: TeamMatchupStats;
+    /** Team 2 stats */
+    team2Stats: TeamMatchupStats;
+    /** Most recent meeting */
+    lastMeeting: HistoricalGame | null;
+    /** Closest game (smallest margin) */
+    closestGame: HistoricalGame | null;
+    /** Highest combined scoring game */
+    highestScoringGame: HistoricalGame | null;
+    /** Lowest combined scoring game */
+    lowestScoringGame: HistoricalGame | null;
+    /** All historical games (most recent first) */
+    games: HistoricalGame[];
+}

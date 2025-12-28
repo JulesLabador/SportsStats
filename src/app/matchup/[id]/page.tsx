@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { SearchWrapper } from "@/components/search/search-wrapper";
 import { MatchupHeader } from "@/components/matchup/matchup-header";
 import { TeamRosterTable } from "@/components/matchup/team-roster-table";
-import { getGameById, getTeamPlayers } from "@/lib/data";
+import { HistoricalMatchupStats } from "@/components/matchup/historical-matchup-stats";
+import { getGameById, getTeamPlayers, getHistoricalMatchupStats } from "@/lib/data";
 import { getTeamFullName } from "@/lib/types";
 
 /**
@@ -70,10 +71,11 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
         notFound();
     }
 
-    // Fetch rosters for both teams
-    const [homeRoster, awayRoster] = await Promise.all([
+    // Fetch rosters for both teams and historical matchup data
+    const [homeRoster, awayRoster, historicalStats] = await Promise.all([
         getTeamPlayers(game.homeTeam, game.season),
         getTeamPlayers(game.awayTeam, game.season),
+        getHistoricalMatchupStats(game.awayTeam, game.homeTeam),
     ]);
 
     return (
@@ -108,6 +110,13 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
 
                 {/* Matchup header */}
                 <MatchupHeader game={game} className="mb-10" />
+
+                {/* Historical matchup statistics */}
+                {historicalStats && (
+                    <section className="mb-10">
+                        <HistoricalMatchupStats stats={historicalStats} />
+                    </section>
+                )}
 
                 {/* Team rosters - two column layout */}
                 <section>
