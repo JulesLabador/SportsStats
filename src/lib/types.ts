@@ -138,6 +138,31 @@ export interface PlayerWithStats extends Player {
 }
 
 /**
+ * Player with aggregated season stats for roster display
+ * Used for sorting players by performance on matchup pages
+ */
+export interface PlayerWithSeasonStats extends Player {
+    /** Total passing yards (QB) */
+    passingYards: number;
+    /** Total passing touchdowns (QB) */
+    passingTDs: number;
+    /** Total rushing yards (RB, QB) */
+    rushingYards: number;
+    /** Total rushing touchdowns (RB, QB) */
+    rushingTDs: number;
+    /** Total receiving yards (WR, TE, RB) */
+    receivingYards: number;
+    /** Total receiving touchdowns (WR, TE, RB) */
+    receivingTDs: number;
+    /** Total receptions (WR, TE, RB) */
+    receptions: number;
+    /** Games played this season */
+    gamesPlayed: number;
+    /** Calculated performance score for sorting */
+    performanceScore: number;
+}
+
+/**
  * Search result item for player search
  */
 export interface PlayerSearchResult {

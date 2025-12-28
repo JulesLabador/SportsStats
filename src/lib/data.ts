@@ -9,6 +9,7 @@ import { createServerClient } from "./supabase";
 import type {
     Player,
     PlayerWithStats,
+    PlayerWithSeasonStats,
     WeeklyStat,
     SeasonSummary,
     PositionStats,
@@ -662,6 +663,180 @@ export async function getTeamPlayers(
     }
 
     return (data || []).map(transformToPlayer);
+}
+
+/**
+ * Get all players on a team with their aggregated season stats
+ * Used for sorting players by performance on matchup pages
+ * @param team - Team abbreviation
+ * @param season - Season year (defaults to 2024)
+ * @returns Array of players with their season stats
+ */
+export async function getTeamPlayersWithStats(
+    team: NFLTeam,
+    season: number = 2024
+): Promise<PlayerWithSeasonStats[]> {
+    const supabase = createServerClient();
+
+    // First get all players on the team
+    const { data: playerData, error: playerError } = await supabase
+        .from("nfl_player_season_details")
+        .select("*")
+        .eq("team", team)
+        .eq("season", season)
+        .eq("is_active", true)
+        .not("name", "ilike", "% Team")
+        .not("name", "eq", "")
+        .order("position")
+        .order("name");
+
+    if (playerError || !playerData) {
+        console.error("Error fetching team players:", playerError);
+        return [];
+    }
+
+    // Get all weekly stats for these players
+    const playerIds = playerData
+        .map((p) => p.player_id)
+        .filter((id): id is string => id !== null);
+
+    if (playerIds.length === 0) {
+        return [];
+    }
+
+    const { data: statsData, error: statsError } = await supabase
+        .from("nfl_weekly_stats_with_player")
+        .select("*")
+        .in("player_id", playerIds)
+        .eq("season", season);
+
+    if (statsError) {
+        console.error("Error fetching player stats:", statsError);
+        // Return players without stats if stats query fails
+        return playerData.map((p) => transformToPlayerWithStats(p, []));
+    }
+
+    // Group stats by player_id
+    const statsByPlayer = new Map<string, NFLWeeklyStatsWithPlayer[]>();
+    for (const stat of statsData || []) {
+        if (!stat.player_id) continue;
+        const existing = statsByPlayer.get(stat.player_id) || [];
+        existing.push(stat);
+        statsByPlayer.set(stat.player_id, existing);
+    }
+
+    // Transform players with their aggregated stats
+    return playerData.map((p) => {
+        const playerStats = statsByPlayer.get(p.player_id || "") || [];
+        return transformToPlayerWithStats(p, playerStats);
+    });
+}
+
+/**
+ * Transform player data with weekly stats into PlayerWithSeasonStats
+ * Calculates aggregated stats and performance score
+ */
+function transformToPlayerWithStats(
+    data: NFLPlayerSeasonDetails,
+    weeklyStats: NFLWeeklyStatsWithPlayer[]
+): PlayerWithSeasonStats {
+    // Aggregate stats from all weeks
+    const aggregated = weeklyStats.reduce(
+        (acc, week) => ({
+            passingYards: acc.passingYards + (week.passing_yards || 0),
+            passingTDs: acc.passingTDs + (week.passing_tds || 0),
+            rushingYards: acc.rushingYards + (week.rushing_yards || 0),
+            rushingTDs: acc.rushingTDs + (week.rushing_tds || 0),
+            receivingYards: acc.receivingYards + (week.receiving_yards || 0),
+            receivingTDs: acc.receivingTDs + (week.receiving_tds || 0),
+            receptions: acc.receptions + (week.receptions || 0),
+        }),
+        {
+            passingYards: 0,
+            passingTDs: 0,
+            rushingYards: 0,
+            rushingTDs: 0,
+            receivingYards: 0,
+            receivingTDs: 0,
+            receptions: 0,
+        }
+    );
+
+    const gamesPlayed = weeklyStats.length;
+    const position = (data.position || "QB") as PlayerPosition;
+
+    // Calculate performance score based on position
+    const performanceScore = calculatePerformanceScore(position, aggregated);
+
+    return {
+        id: data.player_id || "",
+        name: data.name || "Unknown",
+        team: (data.team || "FA") as NFLTeam,
+        position,
+        jerseyNumber: data.jersey_number || 0,
+        imageUrl: data.image_url || undefined,
+        ...aggregated,
+        gamesPlayed,
+        performanceScore,
+    };
+}
+
+/**
+ * Calculate a normalized performance score for sorting players
+ * Score is weighted by position-relevant stats
+ * @param position - Player position
+ * @param stats - Aggregated season stats
+ * @returns Performance score (higher is better)
+ */
+function calculatePerformanceScore(
+    position: PlayerPosition,
+    stats: {
+        passingYards: number;
+        passingTDs: number;
+        rushingYards: number;
+        rushingTDs: number;
+        receivingYards: number;
+        receivingTDs: number;
+        receptions: number;
+    }
+): number {
+    switch (position) {
+        case "QB":
+            // QBs: passing yards (0.04 pts/yd) + passing TDs (4 pts) + rushing yards (0.1 pts/yd) + rushing TDs (6 pts)
+            return (
+                stats.passingYards * 0.04 +
+                stats.passingTDs * 4 +
+                stats.rushingYards * 0.1 +
+                stats.rushingTDs * 6
+            );
+        case "RB":
+            // RBs: rushing yards (0.1 pts/yd) + rushing TDs (6 pts) + receiving yards (0.1 pts/yd) + receiving TDs (6 pts) + receptions (0.5 pts)
+            return (
+                stats.rushingYards * 0.1 +
+                stats.rushingTDs * 6 +
+                stats.receivingYards * 0.1 +
+                stats.receivingTDs * 6 +
+                stats.receptions * 0.5
+            );
+        case "WR":
+            // WRs: receiving yards (0.1 pts/yd) + receiving TDs (6 pts) + receptions (1 pt) + rushing yards (0.1 pts/yd) + rushing TDs (6 pts)
+            return (
+                stats.receivingYards * 0.1 +
+                stats.receivingTDs * 6 +
+                stats.receptions * 1 +
+                stats.rushingYards * 0.1 +
+                stats.rushingTDs * 6
+            );
+        case "TE":
+            // TEs: receiving yards (0.1 pts/yd) + receiving TDs (6 pts) + receptions (1 pt)
+            return (
+                stats.receivingYards * 0.1 +
+                stats.receivingTDs * 6 +
+                stats.receptions * 1
+            );
+        default:
+            return 0;
+    }
 }
 
 // ============================================================================
