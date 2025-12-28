@@ -320,3 +320,89 @@ export const NFL_TEAM_NAMES: Record<NFLTeam, string> = {
 export function getTeamFullName(team: NFLTeam): string {
     return NFL_TEAM_NAMES[team] ?? team;
 }
+
+// ============================================================================
+// HEAD-TO-HEAD MATCHUP TYPES
+// ============================================================================
+
+/**
+ * Historical game data for head-to-head matchups
+ * Represents a completed game between two teams
+ */
+export interface HistoricalGame {
+    /** Internal database ID */
+    id: string;
+    /** Season year */
+    season: number;
+    /** Week number */
+    week: number;
+    /** Game date (ISO string) */
+    gameDate: string;
+    /** Home team abbreviation */
+    homeTeam: NFLTeam;
+    /** Away team abbreviation */
+    awayTeam: NFLTeam;
+    /** Home team final score */
+    homeScore: number;
+    /** Away team final score */
+    awayScore: number;
+    /** Venue name (optional) */
+    venue?: string;
+}
+
+/**
+ * Head-to-head matchup statistics between two teams
+ * Contains aggregate stats and game history
+ */
+export interface HeadToHeadStats {
+    /** First team (typically away team in current matchup) */
+    team1: NFLTeam;
+    /** Second team (typically home team in current matchup) */
+    team2: NFLTeam;
+    /** Total games played between teams */
+    totalGames: number;
+    /** Number of wins for team1 */
+    team1Wins: number;
+    /** Number of wins for team2 */
+    team2Wins: number;
+    /** Number of ties */
+    ties: number;
+    /** Total points scored by team1 across all games */
+    team1TotalPoints: number;
+    /** Total points scored by team2 across all games */
+    team2TotalPoints: number;
+    /** Average points per game for team1 */
+    team1AvgPoints: number;
+    /** Average points per game for team2 */
+    team2AvgPoints: number;
+    /** Highest score by team1 in a single game */
+    team1HighestScore: number;
+    /** Highest score by team2 in a single game */
+    team2HighestScore: number;
+    /** Lowest score by team1 in a single game */
+    team1LowestScore: number;
+    /** Lowest score by team2 in a single game */
+    team2LowestScore: number;
+    /** Team1&apos;s record when playing at home against team2 */
+    team1HomeRecord: TeamRecord;
+    /** Team1&apos;s record when playing away against team2 */
+    team1AwayRecord: TeamRecord;
+    /** Current winning streak information */
+    currentStreak: {
+        /** Team with the streak, null if no streak */
+        team: NFLTeam | null;
+        /** Number of consecutive wins */
+        count: number;
+    };
+    /** Biggest margin of victory in the series */
+    biggestMarginOfVictory: {
+        /** Team that won by the biggest margin */
+        team: NFLTeam;
+        /** Point differential */
+        margin: number;
+        /** The game where this occurred */
+        game: HistoricalGame;
+    } | null;
+    /** List of all historical games, sorted by date descending */
+    games: HistoricalGame[];
+}
