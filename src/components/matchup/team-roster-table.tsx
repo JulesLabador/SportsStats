@@ -81,7 +81,7 @@ export function TeamRosterTable({
             <CardHeader className="pb-4">
                 <CardTitle className="flex items-center justify-between">
                     <Link
-                        href={`/team/${team}`}
+                        href={`/nfl/team/${team}`}
                         className="hover:text-primary transition-colors"
                     >
                         {teamName}
@@ -143,7 +143,7 @@ interface PlayerRowProps {
 function PlayerRow({ player }: PlayerRowProps) {
     return (
         <Link
-            href={`/player/${player.id}`}
+            href={`/nfl/player/${player.id}`}
             className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-muted/50 transition-colors group"
         >
             <div className="flex items-center gap-3">

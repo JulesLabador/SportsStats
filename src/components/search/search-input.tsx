@@ -41,7 +41,7 @@ interface SearchInputProps {
  * @example
  * ```tsx
  * <SearchInput
- *   onSelectPlayer={(player) => router.push(`/player/${player.id}`)}
+ *   onSelectPlayer={(player) => router.push(`/nfl/player/${player.id}`)}
  *   searchResults={filteredPlayers}
  * />
  * ```

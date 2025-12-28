@@ -98,7 +98,7 @@ export function MatchupHeader({ game, className }: MatchupHeaderProps) {
             <div className="flex items-center justify-center gap-4 sm:gap-8 mb-6">
                 {/* Away team */}
                 <Link
-                    href={`/team/${game.awayTeam}`}
+                    href={`/nfl/team/${game.awayTeam}`}
                     className="flex flex-col items-center gap-2 group"
                 >
                     <div className="text-3xl sm:text-4xl font-bold group-hover:text-primary transition-colors">
@@ -123,7 +123,7 @@ export function MatchupHeader({ game, className }: MatchupHeaderProps) {
 
                 {/* Home team */}
                 <Link
-                    href={`/team/${game.homeTeam}`}
+                    href={`/nfl/team/${game.homeTeam}`}
                     className="flex flex-col items-center gap-2 group"
                 >
                     <div className="text-3xl sm:text-4xl font-bold group-hover:text-primary transition-colors">

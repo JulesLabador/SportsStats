@@ -61,7 +61,7 @@ export function SearchWrapper({ className }: SearchWrapperProps) {
      * Handle player selection - navigate to player page
      */
     const handleSelectPlayer = (player: Player) => {
-        router.push(`/player/${player.id}`);
+        router.push(`/nfl/player/${player.id}`);
     };
 
     return (

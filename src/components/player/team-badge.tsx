@@ -54,7 +54,7 @@ export function TeamBadge({
 
     if (linkToTeam) {
         return (
-            <Link href={`/team/${team}`} onClick={(e) => e.stopPropagation()}>
+            <Link href={`/nfl/team/${team}`} onClick={(e) => e.stopPropagation()}>
                 {badge}
             </Link>
         );

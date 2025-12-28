@@ -114,7 +114,7 @@ interface PlayerCardProps {
 
 function PlayerCard({ player }: PlayerCardProps) {
     return (
-        <Link href={`/player/${player.id}`}>
+        <Link href={`/nfl/player/${player.id}`}>
             <Card className="group cursor-pointer transition-colors hover:bg-card/80">
                 <CardContent className="p-4">
                     <div className="flex items-center gap-3">

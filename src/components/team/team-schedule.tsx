@@ -154,7 +154,7 @@ function GameRow({ game, team, showResult }: GameRowProps) {
 
     return (
         <Link
-            href={`/matchup/${game.id}`}
+            href={`/nfl/matchup/${game.id}`}
             className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-muted/50 transition-colors group"
         >
             <div className="flex items-center gap-3">
