@@ -100,12 +100,9 @@ export default async function HomePage() {
                 {/* Background gradient */}
                 <div className="absolute inset-0 bg-gradient-to-b from-stat-neutral/5 to-transparent pointer-events-none" />
 
-                <div className="relative max-w-3xl mx-auto px-4 pt-16 pb-12 sm:pt-24 sm:pb-16">
-                    {/* Logo/Title */}
+                <div className="relative max-w-3xl mx-auto px-4 pt-8 pb-12 sm:pt-12 sm:pb-16">
+                    {/* Tagline */}
                     <div className="text-center mb-8">
-                        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-3">
-                            NFL Stats
-                        </h1>
                         <p className="text-lg text-muted-foreground max-w-md mx-auto">
                             Fast, visual player statistics for smarter betting
                             decisions
