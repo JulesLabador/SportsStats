@@ -1,4 +1,4 @@
-# NFL Stats
+# StatLine
 
 A mobile-first, minimalist NFL player statistics web app designed for sports bettors who rely on data—not gut feelings—to make informed bets.
 
@@ -45,7 +45,7 @@ You can find these values in your Supabase project dashboard under Settings > AP
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd SportsStats
+cd statline
 
 # Install dependencies
 npm install

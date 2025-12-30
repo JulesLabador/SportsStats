@@ -96,7 +96,7 @@ export function Navbar() {
                         onClick={handleLinkClick}
                     >
                         <span className="text-xl">🏈</span>
-                        <span>NFL Stats</span>
+                        <span>StatLine</span>
                     </Link>
 
                     {/* Desktop Navigation */}

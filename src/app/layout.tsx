@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-    title: "NFL Stats | Data-Driven Betting Insights",
+    title: "StatLine | Data-Driven Betting Insights",
     description:
         "Fast, visual NFL player statistics for sports bettors. Search players, analyze trends, and make informed betting decisions.",
     keywords: ["NFL", "stats", "betting", "player statistics", "football"],

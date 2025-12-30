@@ -18,7 +18,7 @@ import { UpcomingMatchCard } from "@/components/matchup/upcoming-match-card";
  * SEO metadata for the home page
  */
 export const metadata: Metadata = {
-    title: "NFL Stats | Player Statistics for Smarter Betting",
+    title: "StatLine | Player Statistics for Smarter Betting",
     description:
         "Search NFL player statistics, analyze performance trends, and make data-driven betting decisions. Fast, visual stats for QBs, RBs, WRs, and TEs.",
     keywords: [
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
         "fantasy football",
     ],
     openGraph: {
-        title: "NFL Stats | Player Statistics for Smarter Betting",
+        title: "StatLine | Player Statistics for Smarter Betting",
         description:
             "Search NFL player statistics, analyze performance trends, and make data-driven betting decisions.",
         type: "website",

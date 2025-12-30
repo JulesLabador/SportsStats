@@ -649,7 +649,7 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
                 headers: {
                     // Identify as a bot (non-deceptive)
                     "User-Agent":
-                        "SportsStats/1.0 (NFL Stats Aggregator; +https://github.com/sportsstats)",
+                        "StatLine/1.0 (NFL Stats Aggregator; +https://checkstatline.com)",
                     Accept: "text/html,application/xhtml+xml",
                 },
             });

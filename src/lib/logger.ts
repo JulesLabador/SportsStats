@@ -46,7 +46,7 @@ const baseOptions: LoggerOptions = {
     timestamp: pino.stdTimeFunctions.isoTime,
     // Base context added to all logs
     base: {
-        app: "sports-stats",
+        app: "statline",
         env: process.env.NODE_ENV || "development",
     },
     // Format error objects properly

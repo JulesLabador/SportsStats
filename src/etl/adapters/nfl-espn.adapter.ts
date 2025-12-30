@@ -1223,7 +1223,7 @@ export class NFLESPNAdapter extends NFLBaseAdapter {
         return rateLimiter.execute("espn", async () => {
             const response = await fetch(url, {
                 headers: {
-                    "User-Agent": "SportsStats/1.0 (NFL Stats Aggregator)",
+                    "User-Agent": "StatLine/1.0 (NFL Stats Aggregator)",
                     Accept: "application/json",
                 },
             });
