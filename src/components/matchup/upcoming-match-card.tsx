@@ -17,46 +17,6 @@ interface UpcomingMatchCardProps {
 }
 
 /**
- * Format a game date for display in multiple time zones
- * Shows date, Pacific time, and Eastern time
- *
- * @param dateString - ISO date string
- * @returns Object with formatted date and times
- */
-function formatGameDateTime(dateString: string): {
-    date: string;
-    pacificTime: string;
-    easternTime: string;
-} {
-    const date = new Date(dateString);
-
-    // Format: "Sun, Dec 29"
-    const dateFormatted = date.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-    });
-
-    // Pacific Time (PT)
-    const pacificTime = date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-        timeZone: "America/Los_Angeles",
-    });
-
-    // Eastern Time (ET)
-    const easternTime = date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-        timeZone: "America/New_York",
-    });
-
-    return { date: dateFormatted, pacificTime, easternTime };
-}
-
-/**
  * Get the text color class for a team (without background)
  */
 function getTeamTextColor(team: NFLTeam): string {
@@ -103,13 +63,14 @@ function isGameLive(gameDate: string): boolean {
 /**
  * UpcomingMatchCard component
  *
- * Mobile-optimized card displaying an upcoming NFL game with:
- * - Away team on the left edge with their record
- * - Date and time (PT/ET) in the center
- * - Home team on the right edge with their record
+ * Compact card displaying an upcoming NFL game for use in timeline view:
+ * - Away team on the left with their record
+ * - "@" symbol in the center
+ * - Home team on the right with their record
+ * - LIVE indicator when game is in progress
  * - Click to navigate to matchup page
  *
- * Week information is displayed in a section header above the cards.
+ * Time information is displayed in the parent timeline header.
  *
  * @example
  * ```tsx
@@ -121,7 +82,6 @@ export function UpcomingMatchCard({
     teamRecords,
     className,
 }: UpcomingMatchCardProps) {
-    const { date, pacificTime, easternTime } = formatGameDateTime(game.gameDate);
     const awayTeamName = getTeamName(game.awayTeam);
     const homeTeamName = getTeamName(game.homeTeam);
     const awayRecord = teamRecords?.get(game.awayTeam);
@@ -137,12 +97,12 @@ export function UpcomingMatchCard({
                 )}
             >
                 <CardContent className="p-3 sm:p-4">
-                    <div className="flex items-center gap-2">
-                        {/* Away team (left side) - fixed width */}
-                        <div className="w-[30%] min-w-0 text-left">
+                    <div className="flex items-center gap-3">
+                        {/* Away team (left side) */}
+                        <div className="flex-1 min-w-0 text-left">
                             <div
                                 className={cn(
-                                    "font-semibold text-sm sm:text-base line-clamp-2 leading-tight",
+                                    "font-semibold text-sm sm:text-base truncate",
                                     getTeamTextColor(game.awayTeam)
                                 )}
                             >
@@ -153,11 +113,10 @@ export function UpcomingMatchCard({
                             </div>
                         </div>
 
-                        {/* Center: Date and time info - fixed width */}
-                        <div className="w-[30%] flex flex-col items-center px-1">
-                            {/* LIVE tag when game is in progress */}
+                        {/* Center: @ symbol or LIVE indicator */}
+                        <div className="shrink-0 flex flex-col items-center justify-center w-12">
                             {isLive ? (
-                                <div className="flex items-center gap-1.5 mb-1">
+                                <div className="flex items-center gap-1">
                                     <span className="relative flex h-2 w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
@@ -167,27 +126,17 @@ export function UpcomingMatchCard({
                                     </span>
                                 </div>
                             ) : (
-                                <div className="text-xs sm:text-sm font-medium text-foreground">
-                                    {date}
-                                </div>
+                                <span className="text-sm text-muted-foreground font-medium">
+                                    @
+                                </span>
                             )}
-                            <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <div className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
-                                    <span className="font-medium">{pacificTime}</span>
-                                    <span className="ml-1 text-muted-foreground/60">PT</span>
-                                </div>
-                                <div className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
-                                    <span className="font-medium">{easternTime}</span>
-                                    <span className="ml-1 text-muted-foreground/60">ET</span>
-                                </div>
-                            </div>
                         </div>
 
-                        {/* Home team (right side) - fixed width */}
-                        <div className="w-[30%] min-w-0 text-right">
+                        {/* Home team (right side) */}
+                        <div className="flex-1 min-w-0 text-right">
                             <div
                                 className={cn(
-                                    "font-semibold text-sm sm:text-base line-clamp-2 leading-tight",
+                                    "font-semibold text-sm sm:text-base truncate",
                                     getTeamTextColor(game.homeTeam)
                                 )}
                             >
@@ -200,7 +149,7 @@ export function UpcomingMatchCard({
 
                         {/* Arrow indicator */}
                         <svg
-                            className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-1"
+                            className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -226,18 +175,16 @@ export function UpcomingMatchCardSkeleton() {
     return (
         <Card>
             <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
                     {/* Away team skeleton */}
                     <div className="flex-1 min-w-0">
                         <div className="h-5 w-24 bg-muted rounded animate-pulse" />
                         <div className="h-3 w-12 bg-muted rounded animate-pulse mt-1" />
                     </div>
 
-                    {/* Center skeleton */}
-                    <div className="flex flex-col items-center shrink-0 px-4">
-                        <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-                        <div className="h-3 w-16 bg-muted rounded animate-pulse mt-1" />
-                        <div className="h-3 w-16 bg-muted rounded animate-pulse mt-0.5" />
+                    {/* Center @ skeleton */}
+                    <div className="shrink-0 w-12 flex justify-center">
+                        <div className="h-4 w-4 bg-muted rounded animate-pulse" />
                     </div>
 
                     {/* Home team skeleton */}
@@ -247,7 +194,7 @@ export function UpcomingMatchCardSkeleton() {
                     </div>
 
                     {/* Arrow skeleton */}
-                    <div className="h-5 w-5 bg-muted rounded animate-pulse shrink-0 ml-1" />
+                    <div className="h-5 w-5 bg-muted rounded animate-pulse shrink-0" />
                 </div>
             </CardContent>
         </Card>

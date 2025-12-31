@@ -43,24 +43,151 @@ export const metadata: Metadata = {
  * Features:
  * - Server-side data fetching for featured players and upcoming games (SEO-friendly)
  * - Client-side search via SearchWrapper component
- * - Upcoming matches section
+ * - Upcoming matches section with vertical timeline display
  * - Static hero section and footer
  */
-/**
- * Group games by week number for section display
- * @param games - Array of NFL games
- * @returns Map of week number to games in that week
- */
-function groupGamesByWeek(games: NFLGame[]): Map<number, NFLGame[]> {
-    const grouped = new Map<number, NFLGame[]>();
 
-    games.forEach((game) => {
-        const existing = grouped.get(game.week) || [];
-        existing.push(game);
-        grouped.set(game.week, existing);
+/**
+ * Get the date string (YYYY-MM-DD) in Eastern timezone for grouping
+ * Uses Intl.DateTimeFormat for reliable server-side timezone handling
+ *
+ * @param dateString - ISO date string
+ * @returns Date string in YYYY-MM-DD format (Eastern timezone)
+ */
+function getEasternDateKey(dateString: string): string {
+    const date = new Date(dateString);
+
+    // Use Intl.DateTimeFormat for reliable timezone conversion
+    const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
     });
 
-    return grouped;
+    const parts = formatter.formatToParts(date);
+    const year = parts.find((p) => p.type === "year")?.value;
+    const month = parts.find((p) => p.type === "month")?.value;
+    const day = parts.find((p) => p.type === "day")?.value;
+
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get the hour (0-23) in Eastern timezone for grouping
+ * Uses Intl.DateTimeFormat for reliable server-side timezone handling
+ *
+ * @param dateString - ISO date string
+ * @returns Hour number (0-23) in Eastern timezone
+ */
+function getEasternHour(dateString: string): number {
+    const date = new Date(dateString);
+
+    // Use Intl.DateTimeFormat for reliable timezone conversion
+    const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        hour12: false,
+    });
+
+    const parts = formatter.formatToParts(date);
+    const hourPart = parts.find((p) => p.type === "hour")?.value ?? "0";
+
+    return parseInt(hourPart, 10);
+}
+
+/**
+ * Format a date key for display as a day header
+ * @param dateKey - Date string in YYYY-MM-DD format
+ * @returns Formatted date string (e.g., "Sunday, December 29")
+ */
+function formatDayHeader(dateKey: string): string {
+    // Parse the date key and create a date at noon to avoid timezone issues
+    const [year, month, day] = dateKey.split("-").map(Number);
+    const date = new Date(year, month - 1, day, 12, 0, 0);
+    return date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+    });
+}
+
+/**
+ * Format time for display in both ET and PT
+ * Uses the first game in the time slot to get the exact time
+ * @param games - Array of games in this time slot
+ * @returns Object with formatted Eastern and Pacific times
+ */
+function formatTimeSlotHeader(games: NFLGame[]): {
+    easternTime: string;
+    pacificTime: string;
+} {
+    // Use the first game&apos;s time for the header
+    const date = new Date(games[0].gameDate);
+
+    const easternTime = date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "America/New_York",
+    });
+
+    const pacificTime = date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "America/Los_Angeles",
+    });
+
+    return { easternTime, pacificTime };
+}
+
+/**
+ * Group games by day (date string) and then by hour within each day
+ * Games within the same hour are grouped together regardless of exact minute
+ *
+ * @param games - Array of NFL games
+ * @returns Nested Map: day (YYYY-MM-DD) -> hour (0-23) -> games
+ */
+function groupGamesByDayAndHour(
+    games: NFLGame[]
+): Map<string, Map<number, NFLGame[]>> {
+    const grouped = new Map<string, Map<number, NFLGame[]>>();
+
+    games.forEach((game) => {
+        const dateKey = getEasternDateKey(game.gameDate);
+        const hour = getEasternHour(game.gameDate);
+
+        // Get or create the day map
+        if (!grouped.has(dateKey)) {
+            grouped.set(dateKey, new Map<number, NFLGame[]>());
+        }
+        const dayMap = grouped.get(dateKey)!;
+
+        // Get or create the hour array
+        if (!dayMap.has(hour)) {
+            dayMap.set(hour, []);
+        }
+        dayMap.get(hour)!.push(game);
+    });
+
+    // Sort days chronologically and hours within each day
+    const sortedResult = new Map<string, Map<number, NFLGame[]>>();
+    const sortedDays = Array.from(grouped.keys()).sort();
+
+    sortedDays.forEach((day) => {
+        const dayMap = grouped.get(day)!;
+        const sortedHours = Array.from(dayMap.keys()).sort((a, b) => a - b);
+        const sortedDayMap = new Map<number, NFLGame[]>();
+
+        sortedHours.forEach((hour) => {
+            sortedDayMap.set(hour, dayMap.get(hour)!);
+        });
+
+        sortedResult.set(day, sortedDayMap);
+    });
+
+    return sortedResult;
 }
 
 /**
@@ -90,8 +217,8 @@ export default async function HomePage() {
     const currentSeason = upcomingGames[0]?.season ?? new Date().getFullYear();
     const teamRecords = await getTeamRecords(uniqueTeams, currentSeason);
 
-    // Group games by week for section headers
-    const gamesByWeek = groupGamesByWeek(upcomingGames);
+    // Group games by day and hour for timeline display
+    const gamesByDayAndHour = groupGamesByDayAndHour(upcomingGames);
 
     return (
         <main className="min-h-screen">
@@ -134,31 +261,77 @@ export default async function HomePage() {
                         </p>
                     </div>
                 ) : (
-                    // Games grouped by week
-                    <div className="flex flex-col gap-6">
-                        {Array.from(gamesByWeek.entries()).map(
-                            ([week, games]) => (
-                                <div key={week}>
-                                    {/* Week section header */}
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <Badge
-                                            variant="outline"
-                                            className="text-xs font-semibold px-3 py-1"
-                                        >
-                                            Week {week}
-                                        </Badge>
-                                        <div className="flex-1 h-px bg-border" />
+                    // Games grouped by day and time in timeline format
+                    <div className="flex flex-col gap-8">
+                        {Array.from(gamesByDayAndHour.entries()).map(
+                            ([dateKey, hourMap]) => (
+                                <div key={dateKey}>
+                                    {/* Day header with decorative lines */}
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
+                                        <h3 className="text-sm font-semibold text-foreground tracking-wide uppercase">
+                                            {formatDayHeader(dateKey)}
+                                        </h3>
+                                        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
                                     </div>
 
-                                    {/* Games in this week */}
-                                    <div className="flex flex-col gap-2">
-                                        {games.map((game) => (
-                                            <UpcomingMatchCard
-                                                key={game.id}
-                                                game={game}
-                                                teamRecords={teamRecords}
-                                            />
-                                        ))}
+                                    {/* Time slots within this day */}
+                                    <div className="flex flex-col gap-6">
+                                        {Array.from(hourMap.entries()).map(
+                                            ([hour, games]) => {
+                                                const {
+                                                    easternTime,
+                                                    pacificTime,
+                                                } = formatTimeSlotHeader(games);
+                                                return (
+                                                    <div
+                                                        key={hour}
+                                                        className="flex gap-4"
+                                                    >
+                                                        {/* Time column (left side - y-axis header) */}
+                                                        <div className="w-24 sm:w-28 shrink-0 pt-1">
+                                                            <div className="text-sm font-semibold text-foreground">
+                                                                {easternTime}{" "}
+                                                                <span className="text-muted-foreground font-normal">
+                                                                    ET
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {pacificTime}{" "}
+                                                                <span className="text-muted-foreground/60">
+                                                                    PT
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Vertical line separator */}
+                                                        <div className="w-px bg-border relative">
+                                                            {/* Dot at the top */}
+                                                            <div className="absolute -left-1 top-2 w-2 h-2 rounded-full bg-muted-foreground/40" />
+                                                        </div>
+
+                                                        {/* Games column */}
+                                                        <div className="flex-1 flex flex-col gap-2 min-w-0">
+                                                            {games.map(
+                                                                (game) => (
+                                                                    <UpcomingMatchCard
+                                                                        key={
+                                                                            game.id
+                                                                        }
+                                                                        game={
+                                                                            game
+                                                                        }
+                                                                        teamRecords={
+                                                                            teamRecords
+                                                                        }
+                                                                    />
+                                                                )
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                        )}
                                     </div>
                                 </div>
                             )

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { HistoricalGame, NFLTeam } from "@/lib/types";
-import { getTeamColor } from "@/lib/team-colors";
 import { cn } from "@/lib/utils";
 
 /**
@@ -64,7 +63,12 @@ export function HistoricalGamesTable({
 }: HistoricalGamesTableProps) {
     if (games.length === 0) {
         return (
-            <div className={cn("text-center py-8 text-muted-foreground", className)}>
+            <div
+                className={cn(
+                    "text-center py-8 text-muted-foreground",
+                    className
+                )}
+            >
                 No historical games found between these teams.
             </div>
         );
@@ -234,5 +238,3 @@ export function groupGamesBySeason(
         return acc;
     }, {} as Record<number, HistoricalGame[]>);
 }
-
-
