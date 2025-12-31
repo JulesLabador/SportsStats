@@ -25,6 +25,8 @@ type SortMode = "position" | "performance";
 interface TeamRosterTableProps {
     /** Team abbreviation */
     team: NFLTeam;
+    /** URL slug for the team page */
+    teamSlug: string;
     /** Array of players with their season stats */
     players: PlayerWithSeasonStats[];
     /** Whether this is the home team */
@@ -131,6 +133,7 @@ function getPrimaryStatLabel(player: PlayerWithSeasonStats): string {
  */
 export function TeamRosterTable({
     team,
+    teamSlug,
     players,
     isHome = false,
     className,
@@ -201,7 +204,7 @@ export function TeamRosterTable({
             <CardHeader className="pb-4">
                 <CardTitle className="flex items-center justify-between">
                     <Link
-                        href={`/nfl/team/${team}`}
+                        href={`/nfl/team/${teamSlug}`}
                         className="hover:text-primary transition-colors"
                     >
                         {teamName}

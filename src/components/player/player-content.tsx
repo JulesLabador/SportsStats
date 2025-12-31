@@ -25,6 +25,8 @@ interface PlayerContentProps {
     availableSeasons: number[];
     /** The initial season that was fetched */
     initialSeason: number;
+    /** URL slug for the player's team page */
+    teamSlug: string;
 }
 
 /**
@@ -52,6 +54,7 @@ export function PlayerContent({
     initialData,
     availableSeasons,
     initialSeason,
+    teamSlug,
 }: PlayerContentProps) {
     // Track current player data (starts with server-fetched data)
     const [playerData, setPlayerData] =
@@ -116,7 +119,7 @@ export function PlayerContent({
             />
 
             {/* Team info card - links to team page */}
-            <TeamInfoCard team={playerData.team} className="mb-6" />
+            <TeamInfoCard team={playerData.team} teamSlug={teamSlug} className="mb-6" />
 
             {/* Season stat summary */}
             {isLoading ? (

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "../ui/badge";
 import { getTeamColor } from "@/lib/team-colors";
-import { NFLTeam } from "@/lib/types";
+import type { NFLTeam } from "@/lib/types";
 
 /**
  * Props for TeamBadge component
@@ -10,6 +10,8 @@ import { NFLTeam } from "@/lib/types";
 interface TeamBadgeProps {
     /** NFL team abbreviation */
     team: NFLTeam;
+    /** URL slug for the team page (required if linkToTeam is true) */
+    teamSlug?: string;
     /** Whether the badge should link to the team page (default: false) */
     linkToTeam?: boolean;
     /** Additional CSS classes */
@@ -33,6 +35,7 @@ interface TeamBadgeProps {
  */
 export function TeamBadge({
     team,
+    teamSlug,
     linkToTeam = false,
     className,
 }: TeamBadgeProps) {
@@ -52,9 +55,9 @@ export function TeamBadge({
         </Badge>
     );
 
-    if (linkToTeam) {
+    if (linkToTeam && teamSlug) {
         return (
-            <Link href={`/nfl/team/${team}`} onClick={(e) => e.stopPropagation()}>
+            <Link href={`/nfl/team/${teamSlug}`} onClick={(e) => e.stopPropagation()}>
                 {badge}
             </Link>
         );

@@ -12,6 +12,8 @@ import { NFL_TEAM_NAMES, type NFLTeam } from "@/lib/types";
 interface TeamInfoCardProps {
     /** NFL team abbreviation */
     team: NFLTeam;
+    /** URL slug for the team page */
+    teamSlug: string;
     /** Additional CSS classes */
     className?: string;
 }
@@ -32,7 +34,7 @@ interface TeamInfoCardProps {
  * <TeamInfoCard team="KC" className="mb-6" />
  * ```
  */
-export function TeamInfoCard({ team, className }: TeamInfoCardProps) {
+export function TeamInfoCard({ team, teamSlug, className }: TeamInfoCardProps) {
     const teamColor = getTeamColor(team);
     const teamName = NFL_TEAM_NAMES[team] ?? team;
 
@@ -45,7 +47,7 @@ export function TeamInfoCard({ team, className }: TeamInfoCardProps) {
         ?.replace("text-", "bg-");
 
     return (
-        <Link href={`/nfl/team/${team}`} className={cn("block group", className)}>
+        <Link href={`/nfl/team/${teamSlug}`} className={cn("block group", className)}>
             <Card
                 className={cn(
                     "relative overflow-hidden transition-all duration-200",
