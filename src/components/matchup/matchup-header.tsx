@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TeamBadge } from "@/components/player/team-badge";
 import type { NFLGame, TeamRecord } from "@/lib/types";
@@ -83,6 +84,49 @@ function getStatusDisplay(status: NFLGame["status"]): {
 }
 
 /**
+ * Determine the game result for styling purposes
+ *
+ * @param game - The game data
+ * @returns Object indicating winner, or null if game not final or tied
+ */
+function getGameResult(game: NFLGame): {
+    awayWon: boolean;
+    homeWon: boolean;
+    isTie: boolean;
+} | null {
+    // Only determine winner for completed games
+    if (game.status !== "final") return null;
+
+    const awayScore = game.awayScore ?? 0;
+    const homeScore = game.homeScore ?? 0;
+
+    if (awayScore === homeScore) {
+        return { awayWon: false, homeWon: false, isTie: true };
+    }
+
+    return {
+        awayWon: awayScore > homeScore,
+        homeWon: homeScore > awayScore,
+        isTie: false,
+    };
+}
+
+/**
+ * Winner badge component with crown icon
+ */
+function WinnerBadge() {
+    return (
+        <Badge
+            variant="secondary"
+            className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-xs font-semibold px-2 py-0.5 gap-1"
+        >
+            <Crown className="h-3 w-3" />
+            Winner
+        </Badge>
+    );
+}
+
+/**
  * MatchupHeader component
  *
  * Displays the header for a matchup page with:
@@ -90,6 +134,7 @@ function getStatusDisplay(status: NFLGame["status"]): {
  * - Large centered "@" separator
  * - Team badges with links to team pages
  * - Score (for completed/in-progress games)
+ * - Clear winner indication with crown badge for completed games
  * - Game date, time, and venue
  * - Game status badge
  *
@@ -107,6 +152,12 @@ export function MatchupHeader({
     const { fullDate, time } = formatGameDateTime(game.gameDate);
     const statusDisplay = getStatusDisplay(game.status);
     const showScore = game.status !== "scheduled";
+    const gameResult = getGameResult(game);
+
+    // Determine if each team won/lost for styling
+    const awayWon = gameResult?.awayWon ?? false;
+    const homeWon = gameResult?.homeWon ?? false;
+    const isFinal = game.status === "final";
 
     return (
         <div className={cn("text-center", className)}>
@@ -125,8 +176,18 @@ export function MatchupHeader({
                 {/* Away team - equal width with flex-1 and basis */}
                 <Link
                     href={`/nfl/team/${game.awayTeam}`}
-                    className="flex flex-col items-center gap-1 sm:gap-2 group flex-1 basis-0 min-w-0"
+                    className={cn(
+                        "flex flex-col items-center gap-1 sm:gap-2 group flex-1 basis-0 min-w-0 transition-opacity",
+                        // Dim the losing team in final games
+                        isFinal &&
+                            !awayWon &&
+                            !gameResult?.isTie &&
+                            "opacity-50"
+                    )}
                 >
+                    {/* Winner badge - shown above team badge for winners */}
+                    {awayWon && <WinnerBadge />}
+
                     {/* Team badge - secondary identifier */}
                     <TeamBadge
                         team={game.awayTeam}
@@ -163,8 +224,18 @@ export function MatchupHeader({
                 {/* Home team - equal width with flex-1 and basis */}
                 <Link
                     href={`/nfl/team/${game.homeTeam}`}
-                    className="flex flex-col items-center gap-1 sm:gap-2 group flex-1 basis-0 min-w-0"
+                    className={cn(
+                        "flex flex-col items-center gap-1 sm:gap-2 group flex-1 basis-0 min-w-0 transition-opacity",
+                        // Dim the losing team in final games
+                        isFinal &&
+                            !homeWon &&
+                            !gameResult?.isTie &&
+                            "opacity-50"
+                    )}
                 >
+                    {/* Winner badge - shown above team badge for winners */}
+                    {homeWon && <WinnerBadge />}
+
                     {/* Team badge - secondary identifier */}
                     <TeamBadge
                         team={game.homeTeam}
