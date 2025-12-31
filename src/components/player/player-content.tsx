@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
 import { SearchWrapper } from "@/components/search/search-wrapper";
 import { PlayerHeader } from "./player-header";
+import { TeamInfoCard } from "./team-info-card";
 import { StatSummary } from "./stat-summary";
 import { GameLogTable, GameLogTableSkeleton } from "./game-log-table";
 import { RelatedPlayers } from "./related-players";
@@ -111,8 +112,11 @@ export function PlayerContent({
                 selectedSeason={selectedSeason || displayedSeason}
                 availableSeasons={availableSeasons}
                 onSeasonChange={handleSeasonChange}
-                className="mb-6"
+                className="mb-4"
             />
+
+            {/* Team info card - links to team page */}
+            <TeamInfoCard team={playerData.team} className="mb-6" />
 
             {/* Season stat summary */}
             {isLoading ? (
