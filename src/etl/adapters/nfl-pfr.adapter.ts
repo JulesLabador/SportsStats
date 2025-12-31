@@ -232,7 +232,10 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
 
         for (const [name, slug] of this.playerSlugs) {
             try {
-                const gameLogs = await this.fetchPlayerGameLog(slug, options.season);
+                const gameLogs = await this.fetchPlayerGameLog(
+                    slug,
+                    options.season
+                );
 
                 for (const log of gameLogs) {
                     // Filter by week if specified
@@ -279,7 +282,9 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
      * This method returns an empty array as game data should come from ESPN.
      */
     async fetchGames(_options: AdapterFetchOptions): Promise<RawNFLGame[]> {
-        log.debug("PFR adapter does not support game fetching, returning empty array");
+        log.debug(
+            "PFR adapter does not support game fetching, returning empty array"
+        );
         return [];
     }
 
@@ -344,9 +349,15 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
 
         // Cache the response
         if (this.cacheService) {
-            await this.cacheService.set("pfr", "player", cacheKey, { html } as unknown as Json, {
-                ttlMs: CacheService.getTTL("player", true),
-            });
+            await this.cacheService.set(
+                "pfr",
+                "player",
+                cacheKey,
+                { html } as unknown as Json,
+                {
+                    ttlMs: CacheService.getTTL("player", true),
+                }
+            );
         }
 
         return this.parsePlayerPage(html, slug);
@@ -366,9 +377,7 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
             }
 
             // Extract position from meta info
-            const positionMatch = html.match(
-                /Position<\/strong>:\s*([A-Z]+)/i
-            );
+            const positionMatch = html.match(/Position<\/strong>:\s*([A-Z]+)/i);
             const position = positionMatch ? positionMatch[1] : "QB";
 
             // Extract team from current team section
@@ -448,15 +457,27 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
 
             // Cache the response
             if (this.cacheService) {
-                await this.cacheService.set("pfr", "gamelog", cacheKey, { html } as unknown as Json, {
-                    ttlMs: CacheService.getTTL("game", season < this.getCurrentSeason()),
-                    season,
-                });
+                await this.cacheService.set(
+                    "pfr",
+                    "gamelog",
+                    cacheKey,
+                    { html } as unknown as Json,
+                    {
+                        ttlMs: CacheService.getTTL(
+                            "game",
+                            season < this.getCurrentSeason()
+                        ),
+                        season,
+                    }
+                );
             }
 
             return this.parseGameLog(html);
         } catch (error) {
-            log.warn({ slug, season, error }, "Failed to fetch game log for season");
+            log.warn(
+                { slug, season, error },
+                "Failed to fetch game log for season"
+            );
             return [];
         }
     }
@@ -487,7 +508,9 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
 
             // Extract header to get column mappings
             const headerMatch = tableHtml.match(/<thead>([\s\S]*?)<\/thead>/i);
-            const columns = this.parseTableHeader(headerMatch ? headerMatch[1] : "");
+            const columns = this.parseTableHeader(
+                headerMatch ? headerMatch[1] : ""
+            );
 
             // Extract body rows
             const bodyMatch = tableHtml.match(/<tbody>([\s\S]*?)<\/tbody>/i);
@@ -565,9 +588,7 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
 
             while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
                 // Strip HTML tags from cell content
-                const cellContent = cellMatch[1]
-                    .replace(/<[^>]+>/g, "")
-                    .trim();
+                const cellContent = cellMatch[1].replace(/<[^>]+>/g, "").trim();
                 cells.push(cellContent);
             }
 
@@ -585,7 +606,8 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
             }
 
             // Extract week number
-            const weekStr = cellMap.get("week_num") ?? cellMap.get("game_num") ?? "0";
+            const weekStr =
+                cellMap.get("week_num") ?? cellMap.get("game_num") ?? "0";
             const week = parseInt(weekStr) || 0;
 
             if (week === 0) {
@@ -655,7 +677,9 @@ export class NFLPFRAdapter extends NFLBaseAdapter {
             });
 
             if (!response.ok) {
-                throw new Error(`PFR error: ${response.status} ${response.statusText}`);
+                throw new Error(
+                    `PFR error: ${response.status} ${response.statusText}`
+                );
             }
 
             return response;
@@ -863,4 +887,3 @@ export const KNOWN_PFR_SLUGS: Record<string, string> = {
     "evan engram": "EngrEv00",
     "david njoku": "NjokDa00",
 };
-

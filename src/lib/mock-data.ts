@@ -296,7 +296,6 @@ function calculateSeasonSummary(
             | TEStats,
     };
 }
-
 /**
  * Get the current NFL season year
  */

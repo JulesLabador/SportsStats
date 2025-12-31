@@ -131,4 +131,3 @@ export function setLogLevel(level: LogLevel): void {
 }
 
 export type { Logger };
-

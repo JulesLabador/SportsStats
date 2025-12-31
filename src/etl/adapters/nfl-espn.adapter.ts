@@ -363,23 +363,35 @@ export class NFLESPNAdapter extends NFLBaseAdapter {
 
             // Log progress every N players
             const processed = i + 1;
-            if (processed % progressInterval === 0 || processed === totalPlayers) {
+            if (
+                processed % progressInterval === 0 ||
+                processed === totalPlayers
+            ) {
                 const elapsedMs = Date.now() - startTime;
                 const avgMsPerPlayer = elapsedMs / processed;
                 const remainingPlayers = totalPlayers - processed;
                 const estimatedRemainingMs = remainingPlayers * avgMsPerPlayer;
-                const estimatedRemainingMins = Math.ceil(estimatedRemainingMs / 60000);
+                const estimatedRemainingMins = Math.ceil(
+                    estimatedRemainingMs / 60000
+                );
 
                 log.info(
                     {
                         progress: `${processed}/${totalPlayers}`,
-                        percentComplete: Math.round((processed / totalPlayers) * 100),
+                        percentComplete: Math.round(
+                            (processed / totalPlayers) * 100
+                        ),
                         successCount,
                         errorCount,
                         elapsedSecs: Math.round(elapsedMs / 1000),
-                        estimatedRemainingMins: processed < totalPlayers ? estimatedRemainingMins : 0,
+                        estimatedRemainingMins:
+                            processed < totalPlayers
+                                ? estimatedRemainingMins
+                                : 0,
                     },
-                    `Player profiles: ${processed}/${totalPlayers} (${Math.round((processed / totalPlayers) * 100)}%)`
+                    `Player profiles: ${processed}/${totalPlayers} (${Math.round(
+                        (processed / totalPlayers) * 100
+                    )}%)`
                 );
             }
         }
@@ -523,12 +535,11 @@ export class NFLESPNAdapter extends NFLBaseAdapter {
 
         // Check cache first
         if (this.cacheService) {
-            const cached =
-                await this.cacheService.get<ESPNScoreboardResponse>(
-                    "espn",
-                    "games",
-                    cacheKey
-                );
+            const cached = await this.cacheService.get<ESPNScoreboardResponse>(
+                "espn",
+                "games",
+                cacheKey
+            );
 
             if (cached.hit && cached.data) {
                 log.debug({ season, week }, "Cache hit for games");
