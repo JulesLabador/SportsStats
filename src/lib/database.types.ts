@@ -421,6 +421,51 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            nfl_teams: {
+                Row: {
+                    abbreviation: string;
+                    name: string;
+                    city: string;
+                    mascot: string;
+                    slug: string;
+                    conference: "AFC" | "NFC";
+                    division: "North" | "South" | "East" | "West";
+                    historical_abbreviations: string[];
+                    founded_year: number | null;
+                    stadium: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    abbreviation: string;
+                    name: string;
+                    city: string;
+                    mascot: string;
+                    slug: string;
+                    conference: "AFC" | "NFC";
+                    division: "North" | "South" | "East" | "West";
+                    historical_abbreviations?: string[];
+                    founded_year?: number | null;
+                    stadium?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    abbreviation?: string;
+                    name?: string;
+                    city?: string;
+                    mascot?: string;
+                    slug?: string;
+                    conference?: "AFC" | "NFC";
+                    division?: "North" | "South" | "East" | "West";
+                    historical_abbreviations?: string[];
+                    founded_year?: number | null;
+                    stadium?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
         };
         Views: {
             nfl_player_season_details: {
@@ -540,6 +585,24 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            nfl_teams_full: {
+                Row: {
+                    abbreviation: string | null;
+                    name: string | null;
+                    city: string | null;
+                    mascot: string | null;
+                    slug: string | null;
+                    conference: string | null;
+                    division: string | null;
+                    historical_abbreviations: string[] | null;
+                    founded_year: number | null;
+                    stadium: string | null;
+                    created_at: string | null;
+                    updated_at: string | null;
+                    all_abbreviations: string[] | null;
+                };
+                Relationships: [];
+            };
         };
         Functions: {
             cleanup_expired_cache: {
@@ -616,6 +679,11 @@ export type NFLGameRow = Database["public"]["Tables"]["nfl_games"]["Row"];
 export type NFLGameInsert = Database["public"]["Tables"]["nfl_games"]["Insert"];
 export type NFLGameUpdate = Database["public"]["Tables"]["nfl_games"]["Update"];
 
+// NFL Teams
+export type NFLTeamRow = Database["public"]["Tables"]["nfl_teams"]["Row"];
+export type NFLTeamInsert = Database["public"]["Tables"]["nfl_teams"]["Insert"];
+export type NFLTeamUpdate = Database["public"]["Tables"]["nfl_teams"]["Update"];
+
 // Views
 export type NFLPlayerSeasonDetails =
     Database["public"]["Views"]["nfl_player_season_details"]["Row"];
@@ -631,6 +699,7 @@ export type NFLUpcomingGames =
     Database["public"]["Views"]["nfl_upcoming_games"]["Row"];
 export type NFLRecentGames =
     Database["public"]["Views"]["nfl_recent_games"]["Row"];
+export type NFLTeamsFull = Database["public"]["Views"]["nfl_teams_full"]["Row"];
 
 // ============================================================================
 // Profile Metadata Types (for JSONB column)

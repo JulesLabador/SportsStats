@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TeamBadge } from "@/components/player/team-badge";
-import type { NFLGame, TeamRecord } from "@/lib/types";
+import type { NFLGame, NFLTeam, TeamRecord } from "@/lib/types";
 import { getTeamFullName } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -16,8 +16,32 @@ interface MatchupHeaderProps {
     homeRecord?: TeamRecord;
     /** Away team record */
     awayRecord?: TeamRecord;
+    /** Home team URL slug */
+    homeTeamSlug: string;
+    /** Away team URL slug */
+    awayTeamSlug: string;
     /** Additional CSS classes */
     className?: string;
+}
+
+/**
+ * Props for TeamDisplay component
+ */
+interface TeamDisplayProps {
+    /** Team abbreviation */
+    team: NFLTeam;
+    /** URL slug for the team page */
+    teamSlug: string;
+    /** Team win/loss/tie record */
+    record?: TeamRecord;
+    /** Team score (if game has started) */
+    score?: number | null;
+    /** Whether to show the score */
+    showScore: boolean;
+    /** Whether this team won the game */
+    isWinner: boolean;
+    /** Whether this team lost the game (for dimming) */
+    isLoser: boolean;
 }
 
 /**
@@ -127,6 +151,67 @@ function WinnerBadge() {
 }
 
 /**
+ * TeamDisplay component
+ *
+ * Displays a single team&apos;s information in the matchup header including:
+ * - Winner badge (if applicable)
+ * - Team badge with color
+ * - Full team name
+ * - Record
+ * - Score (if game has started)
+ *
+ * @param props - TeamDisplay props
+ */
+function TeamDisplay({
+    team,
+    teamSlug,
+    record,
+    score,
+    showScore,
+    isWinner,
+    isLoser,
+}: TeamDisplayProps) {
+    return (
+        <Link
+            href={`/nfl/team/${teamSlug}`}
+            className={cn(
+                "flex flex-col items-center gap-1 sm:gap-2 group flex-1 basis-0 min-w-0 transition-all hover:cursor-pointer hover:scale-105",
+                // Dim the losing team in final games
+                isLoser && "opacity-50"
+            )}
+        >
+            {/* Winner badge - shown above team badge for winners */}
+            {isWinner && <WinnerBadge />}
+
+            {/* Team badge - secondary identifier */}
+            <TeamBadge
+                team={team}
+                className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1"
+            />
+
+            {/* Team name - primary visual element */}
+            <h2 className="text-base sm:text-2xl lg:text-3xl font-bold tracking-tight group-hover:text-primary transition-colors text-center leading-tight">
+                {getTeamFullName(team)}
+            </h2>
+
+            {/* Record */}
+            {record && (
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">
+                    ({formatRecord(record)})
+                </span>
+            )}
+
+            {/* Score - prominent when game has started/finished */}
+            {showScore && (
+                <span className="text-2xl sm:text-4xl lg:text-5xl font-bold mt-1 tabular-nums">
+                    {score ?? 0}
+                </span>
+            )}
+        </Link>
+    );
+}
+
+/**
  * MatchupHeader component
  *
  * Displays the header for a matchup page with:
@@ -147,6 +232,8 @@ export function MatchupHeader({
     game,
     homeRecord,
     awayRecord,
+    homeTeamSlug,
+    awayTeamSlug,
     className,
 }: MatchupHeaderProps) {
     const { fullDate, time } = formatGameDateTime(game.gameDate);
@@ -158,6 +245,7 @@ export function MatchupHeader({
     const awayWon = gameResult?.awayWon ?? false;
     const homeWon = gameResult?.homeWon ?? false;
     const isFinal = game.status === "final";
+    const isTie = gameResult?.isTie ?? false;
 
     return (
         <div className={cn("text-center", className)}>
@@ -173,46 +261,16 @@ export function MatchupHeader({
 
             {/* Hero section - Teams matchup - always horizontal */}
             <div className="flex items-center justify-center gap-2 sm:gap-6 lg:gap-12 mb-6 sm:mb-8">
-                {/* Away team - equal width with flex-1 and basis */}
-                <Link
-                    href={`/nfl/team/${game.awayTeam}`}
-                    className={cn(
-                        "flex flex-col items-center gap-1 sm:gap-2 group flex-1 basis-0 min-w-0 transition-opacity",
-                        // Dim the losing team in final games
-                        isFinal &&
-                            !awayWon &&
-                            !gameResult?.isTie &&
-                            "opacity-50"
-                    )}
-                >
-                    {/* Winner badge - shown above team badge for winners */}
-                    {awayWon && <WinnerBadge />}
-
-                    {/* Team badge - secondary identifier */}
-                    <TeamBadge
-                        team={game.awayTeam}
-                        className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1"
-                    />
-
-                    {/* Team name - primary visual element */}
-                    <h2 className="text-base sm:text-2xl lg:text-3xl font-bold tracking-tight group-hover:text-primary transition-colors text-center leading-tight">
-                        {getTeamFullName(game.awayTeam)}
-                    </h2>
-
-                    {/* Record */}
-                    {awayRecord && (
-                        <span className="text-xs sm:text-sm text-muted-foreground font-medium">
-                            ({formatRecord(awayRecord)})
-                        </span>
-                    )}
-
-                    {/* Score - prominent when game has started/finished */}
-                    {showScore && (
-                        <span className="text-2xl sm:text-4xl lg:text-5xl font-bold mt-1 tabular-nums">
-                            {game.awayScore ?? 0}
-                        </span>
-                    )}
-                </Link>
+                {/* Away team */}
+                <TeamDisplay
+                    team={game.awayTeam}
+                    teamSlug={awayTeamSlug}
+                    record={awayRecord}
+                    score={game.awayScore}
+                    showScore={showScore}
+                    isWinner={awayWon}
+                    isLoser={isFinal && !awayWon && !isTie}
+                />
 
                 {/* Centered separator - fixed width to not affect team spacing */}
                 <div className="shrink-0 flex items-center justify-center w-8 sm:w-12">
@@ -221,46 +279,16 @@ export function MatchupHeader({
                     </span>
                 </div>
 
-                {/* Home team - equal width with flex-1 and basis */}
-                <Link
-                    href={`/nfl/team/${game.homeTeam}`}
-                    className={cn(
-                        "flex flex-col items-center gap-1 sm:gap-2 group flex-1 basis-0 min-w-0 transition-opacity",
-                        // Dim the losing team in final games
-                        isFinal &&
-                            !homeWon &&
-                            !gameResult?.isTie &&
-                            "opacity-50"
-                    )}
-                >
-                    {/* Winner badge - shown above team badge for winners */}
-                    {homeWon && <WinnerBadge />}
-
-                    {/* Team badge - secondary identifier */}
-                    <TeamBadge
-                        team={game.homeTeam}
-                        className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1"
-                    />
-
-                    {/* Team name - primary visual element */}
-                    <h2 className="text-base sm:text-2xl lg:text-3xl font-bold tracking-tight group-hover:text-primary transition-colors text-center leading-tight">
-                        {getTeamFullName(game.homeTeam)}
-                    </h2>
-
-                    {/* Record */}
-                    {homeRecord && (
-                        <span className="text-xs sm:text-sm text-muted-foreground font-medium">
-                            ({formatRecord(homeRecord)})
-                        </span>
-                    )}
-
-                    {/* Score - prominent when game has started/finished */}
-                    {showScore && (
-                        <span className="text-2xl sm:text-4xl lg:text-5xl font-bold mt-1 tabular-nums">
-                            {game.homeScore ?? 0}
-                        </span>
-                    )}
-                </Link>
+                {/* Home team */}
+                <TeamDisplay
+                    team={game.homeTeam}
+                    teamSlug={homeTeamSlug}
+                    record={homeRecord}
+                    score={game.homeScore}
+                    showScore={showScore}
+                    isWinner={homeWon}
+                    isLoser={isFinal && !homeWon && !isTie}
+                />
             </div>
 
             {/* Date and time - supporting info */}
