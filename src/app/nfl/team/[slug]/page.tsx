@@ -9,23 +9,29 @@ import {
     getTeamInfo,
     getTeamRecentResults,
     getTeamUpcomingGames,
+    getTeamBySlug,
+    getAllTeamSlugs,
 } from "@/lib/data";
-import { NFL_TEAM_NAMES, type NFLTeam } from "@/lib/types";
+import type { NFLTeam } from "@/lib/types";
 
 /**
  * Page props with dynamic route params
+ * Uses slug format (e.g., "kansas-city-chiefs") instead of abbreviation
  */
 interface TeamPageProps {
     params: Promise<{
-        team: string;
+        slug: string;
     }>;
 }
 
 /**
- * Validate that a string is a valid NFL team abbreviation
+ * Generate static params for all NFL teams
+ * Enables static generation of all team pages at build time
  */
-function isValidTeam(team: string): team is NFLTeam {
-    return team in NFL_TEAM_NAMES;
+export async function generateStaticParams() {
+    // Fetch all team slugs from the database
+    const slugs = await getAllTeamSlugs();
+    return slugs.map((slug) => ({ slug }));
 }
 
 /**
@@ -34,19 +40,21 @@ function isValidTeam(team: string): team is NFLTeam {
 export async function generateMetadata({
     params,
 }: TeamPageProps): Promise<Metadata> {
-    const { team } = await params;
+    const { slug } = await params;
 
-    // Validate team
-    if (!isValidTeam(team)) {
+    // Resolve slug to team data from database
+    const team = await getTeamBySlug(slug);
+
+    // Return 404 metadata if team not found
+    if (!team) {
         return {
             title: "Team Not Found | NFL Stats",
             description: "The requested team could not be found.",
         };
     }
 
-    const teamName = NFL_TEAM_NAMES[team];
-    const title = `${teamName} | NFL Stats`;
-    const description = `View the ${teamName} roster, schedule, and player statistics. See upcoming games and recent results.`;
+    const title = `${team.name} | NFL Stats`;
+    const description = `View the ${team.name} roster, schedule, and player statistics. See upcoming games and recent results.`;
 
     return {
         title,
@@ -55,6 +63,9 @@ export async function generateMetadata({
             title,
             description,
             type: "website",
+        },
+        alternates: {
+            canonical: `/nfl/team/${slug}`,
         },
     };
 }
@@ -66,14 +77,21 @@ export async function generateMetadata({
  * - Team header with name, record, and logo placeholder
  * - Team roster grouped by position
  * - Recent results and upcoming games
+ *
+ * URL format: /nfl/team/[slug] (e.g., /nfl/team/kansas-city-chiefs)
  */
 export default async function TeamPage({ params }: TeamPageProps) {
-    const { team: teamAbbr } = await params;
+    const { slug } = await params;
 
-    // Validate team abbreviation
-    if (!isValidTeam(teamAbbr)) {
+    // Resolve slug to team data from database
+    const team = await getTeamBySlug(slug);
+
+    // If slug doesn&apos;t match any team, show 404
+    if (!team) {
         notFound();
     }
+
+    const teamAbbr = team.abbreviation as NFLTeam;
 
     // Fetch all team data in parallel
     const [teamInfo, recentGames, upcomingGames] = await Promise.all([

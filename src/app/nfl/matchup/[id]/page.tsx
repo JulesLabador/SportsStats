@@ -5,7 +5,13 @@ import { SearchWrapper } from "@/components/search/search-wrapper";
 import { MatchupHeader } from "@/components/matchup/matchup-header";
 import { TeamRosterTable } from "@/components/matchup/team-roster-table";
 import { MatchupHistorySection } from "@/components/matchup/matchup-history-section";
-import { getGameById, getTeamPlayersWithStats, getHeadToHeadHistory } from "@/lib/data";
+import {
+    getGameById,
+    getTeamPlayersWithStats,
+    getHeadToHeadHistory,
+    getTeamRecords,
+    getTeamSlug,
+} from "@/lib/data";
 import { getTeamFullName } from "@/lib/types";
 
 /**
@@ -71,15 +77,25 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
         notFound();
     }
 
-    // Fetch rosters with stats and head-to-head history in parallel
+    // Fetch rosters with stats, team records, head-to-head history, and team slugs in parallel
     // Away team is team1, home team is team2 for consistency
-    const [homeRoster, awayRoster, recentHistory, allTimeHistory] =
-        await Promise.all([
-            getTeamPlayersWithStats(game.homeTeam, game.season),
-            getTeamPlayersWithStats(game.awayTeam, game.season),
-            getHeadToHeadHistory(game.awayTeam, game.homeTeam, 5), // Last 5 seasons
-            getHeadToHeadHistory(game.awayTeam, game.homeTeam, null), // All-time
-        ]);
+    const [
+        homeRoster,
+        awayRoster,
+        teamRecords,
+        recentHistory,
+        allTimeHistory,
+        homeTeamSlug,
+        awayTeamSlug,
+    ] = await Promise.all([
+        getTeamPlayersWithStats(game.homeTeam, game.season),
+        getTeamPlayersWithStats(game.awayTeam, game.season),
+        getTeamRecords([game.homeTeam, game.awayTeam], game.season),
+        getHeadToHeadHistory(game.awayTeam, game.homeTeam, 5), // Last 5 seasons
+        getHeadToHeadHistory(game.awayTeam, game.homeTeam, null), // All-time
+        getTeamSlug(game.homeTeam),
+        getTeamSlug(game.awayTeam),
+    ]);
 
     return (
         <main className="min-h-screen pb-16">
@@ -91,7 +107,14 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
                 <BackButton className="mb-6" />
 
                 {/* Matchup header */}
-                <MatchupHeader game={game} className="mb-10" />
+                <MatchupHeader
+                    game={game}
+                    homeRecord={teamRecords.get(game.homeTeam)}
+                    awayRecord={teamRecords.get(game.awayTeam)}
+                    homeTeamSlug={homeTeamSlug}
+                    awayTeamSlug={awayTeamSlug}
+                    className="mb-10"
+                />
 
                 {/* Head-to-head history section */}
                 <MatchupHistorySection
@@ -109,6 +132,7 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
                         {/* Away team roster */}
                         <TeamRosterTable
                             team={game.awayTeam}
+                            teamSlug={awayTeamSlug}
                             players={awayRoster}
                             isHome={false}
                         />
@@ -116,6 +140,7 @@ export default async function MatchupPage({ params }: MatchupPageProps) {
                         {/* Home team roster */}
                         <TeamRosterTable
                             team={game.homeTeam}
+                            teamSlug={homeTeamSlug}
                             players={homeRoster}
                             isHome={true}
                         />

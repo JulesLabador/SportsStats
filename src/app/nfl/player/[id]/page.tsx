@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import {
     PlayerContent,
     PlayerNotFound,
@@ -8,6 +7,7 @@ import {
     getPlayerWithStats,
     getAvailableSeasons,
     getPlayerById,
+    getTeamSlug,
 } from "@/lib/data";
 
 /**
@@ -91,12 +91,16 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         );
     }
 
+    // Fetch team slug for the player's current team
+    const teamSlug = await getTeamSlug(playerData.team);
+
     return (
         <main className="min-h-screen pb-16">
             <PlayerContent
                 initialData={playerData}
                 availableSeasons={availableSeasons}
                 initialSeason={initialSeason}
+                teamSlug={teamSlug}
             />
         </main>
     );
