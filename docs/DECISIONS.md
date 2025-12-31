@@ -653,5 +653,113 @@ src/etl/
 
 ---
 
-*Last updated: December 26, 2024*
+## 15. Historic Matchups Browser Feature
+
+### SEO-Focused URL Structure
+**Decision**: Use path-based routing (`/nfl/history/2024/15`) with `generateStaticParams` for full static generation.
+
+**Reasoning**:
+- Every season/week combination is pre-rendered at build time
+- Path-based URLs are more SEO-friendly than query parameters
+- `generateStaticParams` ensures all pages are indexed
+- Sitemap automatically includes all generated pages
+- Faster page loads due to static generation
+
+### Aggregated Team Stats
+**Decision**: Aggregate passing and rushing stats from `nfl_weekly_stats_with_player` view for each game.
+
+**Implementation**:
+- Join games with player weekly stats by season + week + team
+- Sum completions, attempts, rushing yards per team
+- Calculate incompletions as `attempts - completions`
+
+**Reasoning**:
+- Provides meaningful game-level statistics beyond just scores
+- Leverages existing player stats data
+- No additional database schema required
+- Stats help users understand game flow
+
+### New Types
+**Decision**: Add `GameTeamStats` and `HistoricGameWithStats` interfaces.
+
+**Structure**:
+```typescript
+interface GameTeamStats {
+  team: NFLTeam;
+  completions: number;      // passes made
+  attempts: number;         // passes thrown
+  incompletions: number;    // calculated
+  rushingYards: number;     // yards ran
+}
+
+interface HistoricGameWithStats extends HistoricalGame {
+  homeStats: GameTeamStats;
+  awayStats: GameTeamStats;
+}
+```
+
+**Reasoning**:
+- Extends existing `HistoricalGame` type
+- Type-safe stat access
+- Clear separation between base game data and aggregated stats
+
+### Pagination Strategy
+**Decision**: Previous/Next week navigation with automatic season boundary handling.
+
+**Behavior**:
+- Previous: Goes to earlier week, or previous season's last week
+- Next: Goes to later week, or next season's first week
+- Disabled buttons at boundaries (oldest/newest data)
+
+**Reasoning**:
+- Simple, intuitive navigation
+- No dropdowns required (keeps UI minimal)
+- Handles season transitions gracefully
+- Consistent with mobile-first design
+
+### Dynamic SEO Metadata
+**Decision**: Generate unique title and description for each season/week page.
+
+**Examples**:
+- Title: "NFL Week 15 2024 Game Results | SportsStats"
+- Title: "NFL Wild Card 2024 Game Results | SportsStats" (playoffs)
+- Description includes game count and stat types available
+
+**Reasoning**:
+- Unique content for search engines
+- Descriptive titles improve click-through rates
+- Canonical URLs prevent duplicate content
+- Playoff weeks get special labels
+
+### Sitemap & Robots.txt
+**Decision**: Dynamic sitemap and robots.txt generation via Next.js route handlers.
+
+**Implementation**:
+- `src/app/sitemap.ts` - Generates sitemap with all history pages
+- `src/app/robots.ts` - Allows crawling, points to sitemap
+- Priority and changeFrequency vary by season recency
+
+**Reasoning**:
+- Search engines can discover all pages
+- Dynamic generation keeps sitemap up-to-date
+- Older seasons marked as lower priority
+- API routes excluded from indexing
+
+### Component Architecture
+**Decision**: Three reusable components for the history feature.
+
+**Components**:
+- `HistoryGameCard` - Individual game card with scores and stats
+- `HistoryPagination` - Previous/Next navigation controls
+- `HistoryFilters` - Season/week header display
+
+**Reasoning**:
+- Separation of concerns
+- Reusable across different contexts
+- Consistent with existing component patterns
+- Includes skeleton loaders for loading states
+
+---
+
+*Last updated: December 30, 2024*
 
