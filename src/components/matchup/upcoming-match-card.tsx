@@ -96,37 +96,37 @@ export function UpcomingMatchCard({
                     className
                 )}
             >
-                <CardContent className="p-3 sm:p-4">
-                    <div className="flex items-center gap-3">
+                <CardContent className="p-2 sm:p-4">
+                    <div className="flex items-center gap-1.5 sm:gap-3">
                         {/* Away team (left side) */}
                         <div className="flex-1 min-w-0 text-left">
                             <div
                                 className={cn(
-                                    "font-semibold text-sm sm:text-base truncate",
+                                    "font-semibold text-xs sm:text-base leading-tight",
                                     getTeamTextColor(game.awayTeam)
                                 )}
                             >
                                 {awayTeamName}
                             </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
+                            <div className="text-[10px] sm:text-xs text-muted-foreground">
                                 {formatRecord(awayRecord)}
                             </div>
                         </div>
 
                         {/* Center: @ symbol or LIVE indicator */}
-                        <div className="shrink-0 flex flex-col items-center justify-center w-12">
+                        <div className="shrink-0 flex flex-col items-center justify-center w-6 sm:w-12">
                             {isLive ? (
-                                <div className="flex items-center gap-1">
-                                    <span className="relative flex h-2 w-2">
+                                <div className="flex items-center gap-0.5 sm:gap-1">
+                                    <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-red-500" />
                                     </span>
-                                    <span className="text-[10px] sm:text-xs font-bold text-red-500 uppercase tracking-wide">
+                                    <span className="text-[8px] sm:text-xs font-bold text-red-500 uppercase tracking-wide">
                                         Live
                                     </span>
                                 </div>
                             ) : (
-                                <span className="text-sm text-muted-foreground font-medium">
+                                <span className="text-xs sm:text-sm text-muted-foreground font-medium">
                                     @
                                 </span>
                             )}
@@ -136,20 +136,20 @@ export function UpcomingMatchCard({
                         <div className="flex-1 min-w-0 text-right">
                             <div
                                 className={cn(
-                                    "font-semibold text-sm sm:text-base truncate",
+                                    "font-semibold text-xs sm:text-base leading-tight",
                                     getTeamTextColor(game.homeTeam)
                                 )}
                             >
                                 {homeTeamName}
                             </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
+                            <div className="text-[10px] sm:text-xs text-muted-foreground">
                                 {formatRecord(homeRecord)}
                             </div>
                         </div>
 
                         {/* Arrow indicator */}
                         <svg
-                            className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
+                            className="w-3 h-3 sm:w-5 sm:h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -174,27 +174,27 @@ export function UpcomingMatchCard({
 export function UpcomingMatchCardSkeleton() {
     return (
         <Card>
-            <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center gap-3">
+            <CardContent className="p-2 sm:p-4">
+                <div className="flex items-center gap-1.5 sm:gap-3">
                     {/* Away team skeleton */}
                     <div className="flex-1 min-w-0">
-                        <div className="h-5 w-24 bg-muted rounded animate-pulse" />
-                        <div className="h-3 w-12 bg-muted rounded animate-pulse mt-1" />
+                        <div className="h-4 sm:h-5 w-16 sm:w-24 bg-muted rounded animate-pulse" />
+                        <div className="h-2.5 sm:h-3 w-8 sm:w-12 bg-muted rounded animate-pulse mt-0.5" />
                     </div>
 
                     {/* Center @ skeleton */}
-                    <div className="shrink-0 w-12 flex justify-center">
-                        <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+                    <div className="shrink-0 w-6 sm:w-12 flex justify-center">
+                        <div className="h-3 w-3 sm:h-4 sm:w-4 bg-muted rounded animate-pulse" />
                     </div>
 
                     {/* Home team skeleton */}
                     <div className="flex-1 min-w-0 flex flex-col items-end">
-                        <div className="h-5 w-24 bg-muted rounded animate-pulse" />
-                        <div className="h-3 w-12 bg-muted rounded animate-pulse mt-1" />
+                        <div className="h-4 sm:h-5 w-16 sm:w-24 bg-muted rounded animate-pulse" />
+                        <div className="h-2.5 sm:h-3 w-8 sm:w-12 bg-muted rounded animate-pulse mt-0.5" />
                     </div>
 
                     {/* Arrow skeleton */}
-                    <div className="h-5 w-5 bg-muted rounded animate-pulse shrink-0" />
+                    <div className="h-3 w-3 sm:h-5 sm:w-5 bg-muted rounded animate-pulse shrink-0" />
                 </div>
             </CardContent>
         </Card>

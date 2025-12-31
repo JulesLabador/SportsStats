@@ -7,9 +7,7 @@ import {
     getUpcomingGames,
     getTeamRecords,
 } from "@/lib/data";
-import { getTeamColor, getPositionColor } from "@/lib/team-colors";
-import { cn } from "@/lib/utils";
-import type { Player, NFLGame, NFLTeam, TeamRecord } from "@/lib/types";
+import type { Player, NFLGame, NFLTeam } from "@/lib/types";
 import { TeamBadge } from "@/components/player/team-badge";
 import { PositionBadge } from "@/components/player/position-badge";
 import { UpcomingMatchCard } from "@/components/matchup/upcoming-match-card";
@@ -262,21 +260,21 @@ export default async function HomePage() {
                     </div>
                 ) : (
                     // Games grouped by day and time in timeline format
-                    <div className="flex flex-col gap-8">
+                    <div className="flex flex-col gap-6 sm:gap-8">
                         {Array.from(gamesByDayAndHour.entries()).map(
                             ([dateKey, hourMap]) => (
                                 <div key={dateKey}>
                                     {/* Day header with decorative lines */}
-                                    <div className="flex items-center gap-4 mb-6">
+                                    <div className="flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
                                         <div className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
-                                        <h3 className="text-sm font-semibold text-foreground tracking-wide uppercase">
+                                        <h3 className="text-xs sm:text-sm font-semibold text-foreground tracking-wide uppercase whitespace-nowrap">
                                             {formatDayHeader(dateKey)}
                                         </h3>
                                         <div className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
                                     </div>
 
                                     {/* Time slots within this day */}
-                                    <div className="flex flex-col gap-6">
+                                    <div className="flex flex-col gap-4 sm:gap-6">
                                         {Array.from(hourMap.entries()).map(
                                             ([hour, games]) => {
                                                 const {
@@ -286,17 +284,17 @@ export default async function HomePage() {
                                                 return (
                                                     <div
                                                         key={hour}
-                                                        className="flex gap-4"
+                                                        className="flex gap-2 sm:gap-4"
                                                     >
                                                         {/* Time column (left side - y-axis header) */}
-                                                        <div className="w-24 sm:w-28 shrink-0 pt-1">
-                                                            <div className="text-sm font-semibold text-foreground">
+                                                        <div className="w-16 sm:w-28 shrink-0 pt-0.5 sm:pt-1">
+                                                            <div className="text-[11px] sm:text-sm font-semibold text-foreground leading-tight">
                                                                 {easternTime}{" "}
                                                                 <span className="text-muted-foreground font-normal">
                                                                     ET
                                                                 </span>
                                                             </div>
-                                                            <div className="text-xs text-muted-foreground">
+                                                            <div className="text-[10px] sm:text-xs text-muted-foreground leading-tight">
                                                                 {pacificTime}{" "}
                                                                 <span className="text-muted-foreground/60">
                                                                     PT
@@ -307,11 +305,11 @@ export default async function HomePage() {
                                                         {/* Vertical line separator */}
                                                         <div className="w-px bg-border relative">
                                                             {/* Dot at the top */}
-                                                            <div className="absolute -left-1 top-2 w-2 h-2 rounded-full bg-muted-foreground/40" />
+                                                            <div className="absolute -left-0.5 sm:-left-1 top-1.5 sm:top-2 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-muted-foreground/40" />
                                                         </div>
 
                                                         {/* Games column */}
-                                                        <div className="flex-1 flex flex-col gap-2 min-w-0">
+                                                        <div className="flex-1 flex flex-col gap-1.5 sm:gap-2 min-w-0">
                                                             {games.map(
                                                                 (game) => (
                                                                     <UpcomingMatchCard
