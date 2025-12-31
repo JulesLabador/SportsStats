@@ -375,6 +375,38 @@ export interface HistoricalGame {
     venue?: string;
 }
 
+// ============================================================================
+// GAME TEAM STATS TYPES (for historic matchups browser)
+// ============================================================================
+
+/**
+ * Aggregated team statistics for a single game
+ * Used in the historic matchups browser to display passing/rushing stats
+ */
+export interface GameTeamStats {
+    /** Team abbreviation */
+    team: NFLTeam;
+    /** Total pass completions (passes made) */
+    completions: number;
+    /** Total pass attempts (passes thrown) */
+    attempts: number;
+    /** Incomplete passes (calculated: attempts - completions) */
+    incompletions: number;
+    /** Total rushing yards (yards ran) */
+    rushingYards: number;
+}
+
+/**
+ * Historical game with aggregated team stats
+ * Extends HistoricalGame with passing and rushing statistics
+ */
+export interface HistoricGameWithStats extends HistoricalGame {
+    /** Home team aggregated stats */
+    homeStats: GameTeamStats;
+    /** Away team aggregated stats */
+    awayStats: GameTeamStats;
+}
+
 /**
  * Head-to-head matchup statistics between two teams
  * Contains aggregate stats and game history

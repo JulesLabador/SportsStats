@@ -25,13 +25,171 @@ import type {
     TeamRecord,
     HeadToHeadStats,
     HistoricalGame,
+    GameTeamStats,
+    HistoricGameWithStats,
 } from "./types";
 import { NFL_TEAM_NAMES } from "./types";
 import type {
     NFLWeeklyStatsWithPlayer,
     NFLPlayerSeasonDetails,
     NFLGameRow,
+    NFLTeamRow,
 } from "./database.types";
+
+// ============================================================================
+// NFL Team Data Functions (Database-backed)
+// ============================================================================
+
+/**
+ * Fetch all NFL teams from the database
+ *
+ * @returns Array of all NFL team records
+ */
+export async function getAllTeams(): Promise<NFLTeamRow[]> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_teams")
+        .select("*")
+        .order("name");
+
+    if (error) {
+        console.error("Error fetching NFL teams:", error);
+        return [];
+    }
+
+    return data || [];
+}
+
+/**
+ * Get team data by abbreviation from the database
+ *
+ * @param abbreviation - Team abbreviation (e.g., "KC")
+ * @returns Team data or undefined if not found
+ */
+export async function getTeamByAbbreviation(
+    abbreviation: string
+): Promise<NFLTeamRow | undefined> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_teams")
+        .select("*")
+        .eq("abbreviation", abbreviation)
+        .single();
+
+    if (error) {
+        // Not found is expected for invalid abbreviations
+        if (error.code !== "PGRST116") {
+            console.error("Error fetching team by abbreviation:", error);
+        }
+        return undefined;
+    }
+
+    return data;
+}
+
+/**
+ * Get team data by URL slug from the database
+ *
+ * @param slug - URL slug (e.g., "kansas-city-chiefs")
+ * @returns Team data or undefined if not found
+ */
+export async function getTeamBySlug(
+    slug: string
+): Promise<NFLTeamRow | undefined> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_teams")
+        .select("*")
+        .eq("slug", slug)
+        .single();
+
+    if (error) {
+        // Not found is expected for invalid slugs
+        if (error.code !== "PGRST116") {
+            console.error("Error fetching team by slug:", error);
+        }
+        return undefined;
+    }
+
+    return data;
+}
+
+/**
+ * Resolve a team abbreviation (current or historical) to the current team
+ * Uses the historical_abbreviations array to find relocated franchises
+ *
+ * @param abbreviation - Team abbreviation (may be historical like "STL", "OAK", "SD")
+ * @returns Current team data or undefined if not recognized
+ */
+export async function resolveTeamAbbreviation(
+    abbreviation: string
+): Promise<NFLTeamRow | undefined> {
+    const supabase = createServerClient();
+
+    // First check if it's a current abbreviation
+    const currentTeam = await getTeamByAbbreviation(abbreviation);
+    if (currentTeam) {
+        return currentTeam;
+    }
+
+    // Check if it's a historical abbreviation
+    const { data, error } = await supabase
+        .from("nfl_teams")
+        .select("*")
+        .contains("historical_abbreviations", [abbreviation])
+        .single();
+
+    if (error) {
+        if (error.code !== "PGRST116") {
+            console.error("Error resolving team abbreviation:", error);
+        }
+        return undefined;
+    }
+
+    return data;
+}
+
+/**
+ * Get all abbreviations for a franchise (current + historical)
+ * Used for querying historical game data that may use old abbreviations
+ *
+ * @param abbreviation - Current team abbreviation
+ * @returns Array of all abbreviations associated with the franchise
+ */
+export async function getFranchiseAbbreviations(
+    abbreviation: string
+): Promise<string[]> {
+    const team = await getTeamByAbbreviation(abbreviation);
+    if (!team) {
+        return [abbreviation];
+    }
+
+    return [team.abbreviation, ...team.historical_abbreviations];
+}
+
+/**
+ * Get all team slugs for sitemap generation
+ *
+ * @returns Array of all team URL slugs
+ */
+export async function getAllTeamSlugs(): Promise<string[]> {
+    const teams = await getAllTeams();
+    return teams.map((team) => team.slug);
+}
+
+/**
+ * Get the URL slug for an NFL team
+ *
+ * @param abbreviation - Team abbreviation
+ * @returns SEO-friendly URL slug or lowercase abbreviation as fallback
+ */
+export async function getTeamSlug(abbreviation: string): Promise<string> {
+    const team = await getTeamByAbbreviation(abbreviation);
+    return team?.slug ?? abbreviation.toLowerCase();
+}
 
 /**
  * Get the current NFL season year
@@ -492,6 +650,7 @@ export async function getGameById(
 
 /**
  * Get recent completed games for a team
+ * Includes historical games from franchise relocations (e.g., STL games for LAR)
  * @param team - Team abbreviation
  * @param limit - Maximum number of games to return (default 5)
  * @returns Array of recent completed games
@@ -502,11 +661,20 @@ export async function getTeamRecentResults(
 ): Promise<NFLGame[]> {
     const supabase = createServerClient();
 
+    // Get all abbreviations for this franchise (current + historical)
+    const franchiseAbbrs = await getFranchiseAbbreviations(team);
+
+    // Build OR conditions for all franchise abbreviations
+    // e.g., for LV: "home_team.eq.LV,away_team.eq.LV,home_team.eq.OAK,away_team.eq.OAK"
+    const orConditions = franchiseAbbrs
+        .flatMap((abbr: string) => [`home_team.eq.${abbr}`, `away_team.eq.${abbr}`])
+        .join(",");
+
     const { data, error } = await supabase
         .from("nfl_games")
         .select("*")
         .eq("status", "final")
-        .or(`home_team.eq.${team},away_team.eq.${team}`)
+        .or(orConditions)
         .order("game_date", { ascending: false })
         .limit(limit);
 
@@ -520,6 +688,7 @@ export async function getTeamRecentResults(
 
 /**
  * Get upcoming games for a team
+ * Note: Upcoming games only use current abbreviation (teams don&apos;t relocate mid-season)
  * @param team - Team abbreviation
  * @param limit - Maximum number of games to return (default 3)
  * @returns Array of upcoming games for the team
@@ -563,8 +732,11 @@ export async function getTeamInfo(
 ): Promise<TeamInfo | undefined> {
     const supabase = createServerClient();
 
+    // Get team data from nfl_teams table
+    const teamRecord = await getTeamByAbbreviation(team);
+
     // Get team record from the view
-    const { data: teamData, error: teamError } = await supabase
+    const { data: teamData } = await supabase
         .from("nfl_team_details")
         .select("*")
         .eq("abbreviation", team)
@@ -583,7 +755,7 @@ export async function getTeamInfo(
 
     return {
         abbreviation: team,
-        name: NFL_TEAM_NAMES[team] ?? team,
+        name: teamRecord?.name ?? NFL_TEAM_NAMES[team] ?? team,
         record,
         players,
     };
@@ -592,6 +764,7 @@ export async function getTeamInfo(
 /**
  * Get team records for multiple teams
  * Calculates win/loss/tie records directly from completed games
+ * Includes historical franchise abbreviations for relocated teams
  * @param teams - Array of team abbreviations
  * @param season - Season year (defaults to 2024)
  * @returns Map of team abbreviation to TeamRecord
@@ -613,6 +786,17 @@ export async function getTeamRecords(
         return recordsMap;
     }
 
+    // Build a map of all abbreviations (current + historical) to current team
+    // e.g., { "LV": "LV", "OAK": "LV", "LAR": "LAR", "STL": "LAR" }
+    const abbrToCurrentTeam = new Map<string, NFLTeam>();
+    const franchiseAbbrPromises = teams.map(async (team) => {
+        const allAbbrs = await getFranchiseAbbreviations(team);
+        allAbbrs.forEach((abbr) => {
+            abbrToCurrentTeam.set(abbr, team);
+        });
+    });
+    await Promise.all(franchiseAbbrPromises);
+
     // Query completed games for the season involving any of the requested teams
     const { data: games, error } = await supabase
         .from("nfl_games")
@@ -627,45 +811,46 @@ export async function getTeamRecords(
 
     // Calculate records from completed games
     (games || []).forEach((game) => {
-        const homeTeam = game.home_team as NFLTeam;
-        const awayTeam = game.away_team as NFLTeam;
+        const homeTeamAbbr = game.home_team;
+        const awayTeamAbbr = game.away_team;
         const homeScore = game.home_score ?? 0;
         const awayScore = game.away_score ?? 0;
 
-        // Only process if we're tracking one of these teams
-        const trackHome = recordsMap.has(homeTeam);
-        const trackAway = recordsMap.has(awayTeam);
+        // Resolve to current team abbreviation (handles historical abbreviations)
+        const homeTeam = abbrToCurrentTeam.get(homeTeamAbbr);
+        const awayTeam = abbrToCurrentTeam.get(awayTeamAbbr);
 
-        if (!trackHome && !trackAway) return;
+        // Only process if we&apos;re tracking one of these teams
+        if (!homeTeam && !awayTeam) return;
 
         // Determine outcome
         if (homeScore > awayScore) {
             // Home team won
-            if (trackHome) {
+            if (homeTeam) {
                 const record = recordsMap.get(homeTeam)!;
                 record.wins++;
             }
-            if (trackAway) {
+            if (awayTeam) {
                 const record = recordsMap.get(awayTeam)!;
                 record.losses++;
             }
         } else if (awayScore > homeScore) {
             // Away team won
-            if (trackAway) {
+            if (awayTeam) {
                 const record = recordsMap.get(awayTeam)!;
                 record.wins++;
             }
-            if (trackHome) {
+            if (homeTeam) {
                 const record = recordsMap.get(homeTeam)!;
                 record.losses++;
             }
         } else {
             // Tie
-            if (trackHome) {
+            if (homeTeam) {
                 const record = recordsMap.get(homeTeam)!;
                 record.ties++;
             }
-            if (trackAway) {
+            if (awayTeam) {
                 const record = recordsMap.get(awayTeam)!;
                 record.ties++;
             }
@@ -1209,4 +1394,297 @@ function calculateCurrentStreak(
     }
 
     return { team: streakTeam, count };
+}
+
+// ============================================================================
+// Historic Matchups Browser Functions
+// ============================================================================
+
+/**
+ * Get historic games with optional season and week filters
+ * Returns completed games ordered by date descending
+ *
+ * @param season - Optional season year to filter by
+ * @param week - Optional week number to filter by
+ * @returns Array of historical games
+ */
+export async function getHistoricGames(
+    season?: number,
+    week?: number
+): Promise<HistoricalGame[]> {
+    const supabase = createServerClient();
+
+    // Build query for completed games
+    let query = supabase
+        .from("nfl_games")
+        .select("*")
+        .eq("status", "final")
+        .order("game_date", { ascending: false });
+
+    // Apply filters if provided
+    if (season !== undefined) {
+        query = query.eq("season", season);
+    }
+    if (week !== undefined) {
+        query = query.eq("week", week);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error("Error fetching historic games:", error);
+        return [];
+    }
+
+    return (data || []).map(transformToHistoricalGame);
+}
+
+/**
+ * Get list of available seasons with game data
+ * Returns seasons in descending order (most recent first)
+ *
+ * @returns Array of season years with completed games
+ */
+export async function getAvailableHistoricSeasons(): Promise<number[]> {
+    const supabase = createServerClient();
+
+    // Query distinct seasons from completed games
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("season")
+        .eq("status", "final")
+        .order("season", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching available historic seasons:", error);
+        return [];
+    }
+
+    // Extract unique seasons
+    const seasons = [...new Set((data || []).map((d) => d.season))];
+    return seasons;
+}
+
+/**
+ * Get list of available weeks for a specific season
+ * Returns weeks in ascending order
+ *
+ * @param season - The season year to get weeks for
+ * @returns Array of week numbers with completed games
+ */
+export async function getAvailableWeeksForSeason(
+    season: number
+): Promise<number[]> {
+    const supabase = createServerClient();
+
+    // Query distinct weeks from completed games for the season
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("week")
+        .eq("status", "final")
+        .eq("season", season)
+        .order("week", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching available weeks:", error);
+        return [];
+    }
+
+    // Extract unique weeks
+    const weeks = [...new Set((data || []).map((d) => d.week))];
+    return weeks;
+}
+
+/**
+ * Get most recent completed season and week
+ * Used as default for the history browser
+ *
+ * @returns Object with season and week of most recent completed game
+ */
+export async function getMostRecentCompletedWeek(): Promise<{
+    season: number;
+    week: number;
+} | null> {
+    const supabase = createServerClient();
+
+    // Get the most recent completed game
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("season, week")
+        .eq("status", "final")
+        .order("game_date", { ascending: false })
+        .limit(1)
+        .single();
+
+    if (error || !data) {
+        console.error("Error fetching most recent completed week:", error);
+        return null;
+    }
+
+    return { season: data.season, week: data.week };
+}
+
+/**
+ * Get aggregated team stats for a specific game
+ * Aggregates passing and rushing stats from all players on each team
+ *
+ * @param game - The historical game to get stats for
+ * @returns Game with aggregated team stats, or null if stats unavailable
+ */
+export async function getGameTeamStats(
+    game: HistoricalGame
+): Promise<HistoricGameWithStats> {
+    const supabase = createServerClient();
+
+    // Query weekly stats for both teams in this game's week
+    const { data, error } = await supabase
+        .from("nfl_weekly_stats_with_player")
+        .select("team, completions, attempts, rushing_yards")
+        .eq("season", game.season)
+        .eq("week", game.week)
+        .in("team", [game.homeTeam, game.awayTeam]);
+
+    // Create empty stats as fallback
+    const emptyStats = (team: NFLTeam): GameTeamStats => ({
+        team,
+        completions: 0,
+        attempts: 0,
+        incompletions: 0,
+        rushingYards: 0,
+    });
+
+    if (error || !data) {
+        console.error("Error fetching game team stats:", error);
+        return {
+            ...game,
+            homeStats: emptyStats(game.homeTeam),
+            awayStats: emptyStats(game.awayTeam),
+        };
+    }
+
+    // Aggregate stats by team
+    const homeStats = data
+        .filter((s) => s.team === game.homeTeam)
+        .reduce(
+            (acc, stat) => ({
+                team: game.homeTeam,
+                completions: acc.completions + (stat.completions || 0),
+                attempts: acc.attempts + (stat.attempts || 0),
+                incompletions: 0, // Will calculate after
+                rushingYards: acc.rushingYards + (stat.rushing_yards || 0),
+            }),
+            emptyStats(game.homeTeam)
+        );
+
+    const awayStats = data
+        .filter((s) => s.team === game.awayTeam)
+        .reduce(
+            (acc, stat) => ({
+                team: game.awayTeam,
+                completions: acc.completions + (stat.completions || 0),
+                attempts: acc.attempts + (stat.attempts || 0),
+                incompletions: 0, // Will calculate after
+                rushingYards: acc.rushingYards + (stat.rushing_yards || 0),
+            }),
+            emptyStats(game.awayTeam)
+        );
+
+    // Calculate incompletions
+    homeStats.incompletions = homeStats.attempts - homeStats.completions;
+    awayStats.incompletions = awayStats.attempts - awayStats.completions;
+
+    return {
+        ...game,
+        homeStats,
+        awayStats,
+    };
+}
+
+/**
+ * Get historic games with aggregated team stats for a season/week
+ * Combines game data with passing and rushing stats
+ *
+ * @param season - Optional season year to filter by
+ * @param week - Optional week number to filter by
+ * @returns Array of games with team stats
+ */
+export async function getHistoricGamesWithStats(
+    season?: number,
+    week?: number
+): Promise<HistoricGameWithStats[]> {
+    // First get the games
+    const games = await getHistoricGames(season, week);
+
+    if (games.length === 0) {
+        return [];
+    }
+
+    // Get stats for all games in parallel
+    const gamesWithStats = await Promise.all(
+        games.map((game) => getGameTeamStats(game))
+    );
+
+    return gamesWithStats;
+}
+
+// ============================================================================
+// Sitemap Data Functions
+// ============================================================================
+
+/**
+ * Get all game IDs for sitemap generation
+ * Returns IDs for all games (scheduled, in-progress, and completed)
+ *
+ * @returns Array of game IDs
+ */
+export async function getAllGameIds(): Promise<string[]> {
+    const supabase = createServerClient();
+
+    const { data, error } = await supabase
+        .from("nfl_games")
+        .select("id")
+        .order("game_date", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching game IDs for sitemap:", error);
+        return [];
+    }
+
+    return (data || []).map((game) => game.id);
+}
+
+/**
+ * Get all player IDs for sitemap generation
+ * Returns IDs for all active players with recent season data
+ *
+ * @returns Array of player IDs
+ */
+export async function getAllPlayerIds(): Promise<string[]> {
+    const supabase = createServerClient();
+
+    // Get unique player IDs from the season details view
+    // Filter to active players to avoid indexing inactive/retired players
+    const { data, error } = await supabase
+        .from("nfl_player_season_details")
+        .select("player_id")
+        .eq("is_active", true)
+        .not("name", "ilike", "% Team")
+        .not("name", "eq", "")
+        .order("name");
+
+    if (error) {
+        console.error("Error fetching player IDs for sitemap:", error);
+        return [];
+    }
+
+    // Deduplicate player IDs (players may appear in multiple seasons)
+    const uniqueIds = [
+        ...new Set(
+            (data || [])
+                .map((player) => player.player_id)
+                .filter((id): id is string => id !== null)
+        ),
+    ];
+
+    return uniqueIds;
 }
